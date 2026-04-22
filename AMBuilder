@@ -7,6 +7,12 @@ for sdk_target in MMSPlugin.sdk_targets:
 
   binary = MMSPlugin.HL2Library(builder, cxx, f'{MMSPlugin.metadata["name"]}.{sdk["name"]}', sdk)
 
+  # Add src/ so that headers like ics2admin.h can be found
+  binary.compiler.cxxincludes += [
+    os.path.join(builder.sourcePath, 'src'),
+    os.path.join(builder.sourcePath, 'vendor', 'mm-cs2admin', 'src'),
+  ]
+
   binary.sources += [
     'src/cs2whitelist.cpp',
   ]

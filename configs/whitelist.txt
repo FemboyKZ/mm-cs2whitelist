@@ -1,0 +1,11 @@
+// CS2 Whitelist - managed by cs2whitelist plugin
+// One entry per line. Supported formats:
+//   STEAM_0:X:Y   (Steam2 SteamID, any universe digit is normalised to 0)
+//   76561198...   (SteamID64 decimal)
+//   1.2.3.4       (IPv4 address, exact match, no CIDR)
+// Lines starting with // or # are treated as comments and ignored.
+
+// Example entries (remove the leading // to activate):
+// STEAM_0:1:12345678
+// 76561198012345678
+// 192.168.1.100

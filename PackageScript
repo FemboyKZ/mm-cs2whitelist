@@ -101,10 +101,8 @@ for task in MMSPlugin.binaries:
   
   packages[sdk_name].addBinary(task.binary)
 
-  # Add custom stuff here
-  # Examples:
-  # packages[sdk_name].addFolder('some_folder_with_files')
-  # packages[sdk_name].addFile('configs/config.cfg', 'other/new_name_for_a_config.cfg')
+  # Copy example whitelist config
+  packages[sdk_name].addFile('configs/whitelist.txt', 'configs/whitelist.txt.example')
 
   if task.debug:
     pdb_list.append(task.debug)
