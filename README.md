@@ -40,6 +40,7 @@ Supported entry types:
 | `mm_whitelist_immunity` | `1` | Skip the check for players with any cs2admin flag. |
 | `mm_whitelist_kickmessage` | `You are not whitelisted on this server.` | Console message sent to kicked players. |
 | `mm_whitelist_filename` | `whitelist.txt` | File name inside `cfg/cs2whitelist/`. |
+| `mm_whitelist_log` | `0` | Log failed join attempts. `0` = off, `1` = always, `2` = once per player per map. Logs to console and `addons/cs2whitelist/logs/YYYY-MM-DD.log`. |
 
 ### Admin commands
 
@@ -48,9 +49,11 @@ Without it, commands can only be issued from the **server console**.
 
 | Command | Required flag | Description |
 | --- | --- | --- |
-| `mm_whitelist_status` | `b` (Generic) | Show status, entry count, and file name. |
+| `mm_whitelist_status` | `b` (Generic) | Show status, entry count, cache sizes, and file name. |
 | `mm_whitelist_list` | `b` (Generic) | Print all whitelist entries. |
-| `mm_whitelist_reload` | `h` (ConVars) | Reload whitelist from disk. |
+| `mm_whitelist_exist <id\|ip>` | `b` (Generic) | Check whether a SteamID or IP is in the loaded whitelist. |
+| `mm_whitelist_reload` | `h` (ConVars) | Reload whitelist from disk (also clears both caches). |
+| `mm_whitelist_cache_clear` | `h` (ConVars) | Clear the per-map whitelist and rejection caches. Forces all players to re-run the full whitelist check on next connect. |
 | `mm_whitelist_add <id\|ip>` | `e` (Unban) | Add a SteamID or IP and save. |
 | `mm_whitelist_remove <id\|ip>` | `e` (Unban) | Remove a SteamID or IP and save. |
 
