@@ -68,13 +68,15 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 	else if (sec == "groups")
 	{
 		// Nested under SteamGroups: each value is a 64-bit Steam group ID
-		try
+		bool allDigits = !value.empty();
+		for (char c : value)
+			if (c < '0' || c > '9') { allDigits = false; break; }
+		if (allDigits)
 		{
-			uint64_t gid = std::stoull(value);
+			uint64_t gid = std::strtoull(value.c_str(), nullptr, 10);
 			if (gid != 0)
 				cfg->sgGroupIds.push_back(gid);
 		}
-		catch (...) {}
 	}
 	else if (sec == "database")
 	{

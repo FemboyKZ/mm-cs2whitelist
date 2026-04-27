@@ -107,17 +107,13 @@ bool WLManager::LoadFile()
 
 			if (allDigits && trimmed.size() >= 15)
 			{
-				try
+				uint64_t id = std::strtoull(trimmed.c_str(), nullptr, 10);
+				if (id != 0 && ((id >> 52) & 0xF) == 7) // clan/group account type
 				{
-					uint64_t id = std::stoull(trimmed);
-					if (((id >> 52) & 0xF) == 7) // clan/group account type
-					{
-						m_fileGroupIds.push_back(id);
-						++groupCount;
-						continue;
-					}
+					m_fileGroupIds.push_back(id);
+					++groupCount;
+					continue;
 				}
-				catch (...) {}
 			}
 		}
 

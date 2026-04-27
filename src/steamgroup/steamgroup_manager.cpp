@@ -20,14 +20,11 @@ static int ExtractIntTag(const std::string &body, const char *open, const char *
 	size_t end = body.find(close, pos);
 	if (end == std::string::npos)
 		return 0;
-	try
-	{
-		return std::stoi(body.substr(pos, end - pos));
-	}
-	catch (...)
-	{
+	char *endptr = nullptr;
+	long val = std::strtol(body.c_str() + pos, &endptr, 10);
+	if (endptr == body.c_str() + pos)
 		return 0;
-	}
+	return static_cast<int>(val);
 }
 
 // Init / Shutdown
@@ -360,16 +357,12 @@ void SteamGroupManager::ParseXmlBody(uint64_t groupId, int page, const std::stri
 			break;
 
 		const std::string idStr = body.substr(tagStart, tagEnd - tagStart);
-		try
+		uint64_t id = std::strtoull(idStr.c_str(), nullptr, 10);
+		if (id != 0)
 		{
-			uint64_t id = std::stoull(idStr);
-			if (id != 0)
-			{
-				members.insert(id);
-				++count;
-			}
+			members.insert(id);
+			++count;
 		}
-		catch (...) {}
 
 		pos = tagEnd + kCloseLen;
 	}
@@ -422,9 +415,7 @@ bool SteamGroupManager::ParseApiResponse(uint64_t xuid, const std::string &body)
 
 		if (end > pos)
 		{
-			uint64_t gid = 0;
-			try { gid = std::stoull(body.substr(pos, end - pos)); }
-			catch (...) {}
+			uint64_t gid = std::strtoull(body.c_str() + pos, nullptr, 10);
 
 			for (uint64_t wanted : m_effectiveGroupIds)
 			{
