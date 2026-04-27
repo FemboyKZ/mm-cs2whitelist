@@ -1,6 +1,8 @@
 # CS2 Whitelist
 
-Metamod: Source plugin for CS2 server whitelisting. Restricts server access to a list of SteamIDs and IP addresses defined in a text file.
+Metamod: Source plugin for CS2 server whitelisting. 
+
+Restricts server access to a list of Steam Group memebers, SteamIDs and IP addresses defined in a text file or in a database.
 
 ## Usage
 
