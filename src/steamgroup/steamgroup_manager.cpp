@@ -70,19 +70,7 @@ void SteamGroupManager::FetchGroups()
 	if (!m_cfg.enabled)
 		return;
 
-	// Lazily acquire HTTP interface if it wasn't ready at Init() time
-	if (!m_pHttp)
-	{
-		m_pHttp = SteamGameServerHTTP();
-		if (!m_pHttp)
-		{
-			META_CONPRINTF("[WHITELIST] SteamGroup: FetchGroups() - SteamGameServerHTTP() still null, skipping.\n");
-			return;
-		}
-		META_CONPRINTF("[WHITELIST] SteamGroup: acquired SteamGameServerHTTP().\n");
-	}
-
-	// Build effective group list: config IDs + IDs from whitelist.txt
+	// Always build effective group list first (doesn't need HTTP)
 	{
 		std::unordered_set<uint64_t> seen;
 		m_effectiveGroupIds.clear();
@@ -98,8 +86,30 @@ void SteamGroupManager::FetchGroups()
 		return;
 
 	if (m_cfg.method != Method::XML)
+	{
+		META_CONPRINTF("[WHITELIST] SteamGroup: effective group IDs loaded (%d), method=api.\n",
+		               (int)m_effectiveGroupIds.size());
 		return;
+	}
 
+	// Lazily acquire HTTP for XML fetches
+	if (!m_pHttp)
+	{
+		m_pHttp = SteamGameServerHTTP();
+		if (!m_pHttp)
+		{
+			META_CONPRINTF("[WHITELIST] SteamGroup: HTTP not ready, XML fetches deferred.\n");
+			return; // m_effectiveGroupIds is populated; StartXmlFetches() will be retried
+		}
+		META_CONPRINTF("[WHITELIST] SteamGroup: acquired SteamGameServerHTTP().\n");
+	}
+
+	StartXmlFetches();
+}
+
+// StartXmlFetches - (re)start XML fetches for all effective groups
+void SteamGroupManager::StartXmlFetches()
+{
 	// Reset XML state
 	m_memberSets.clear();
 	m_fetchedGroups.clear();
@@ -123,7 +133,7 @@ void SteamGroupManager::FetchGroups()
 		}
 	}
 
-	// Kick off pending XML players from the new batch
+	// Clear pending XML players from the previous batch
 	m_pendingXml.clear();
 
 	for (uint64_t gid : m_effectiveGroupIds)
@@ -265,7 +275,28 @@ bool SteamGroupManager::CheckPlayer(int slot, uint64_t xuid, bool &pending)
 	{
 		if (!AllGroupsFetched())
 		{
-			// XML data not ready yet, queue player
+			// Check whether any XML fetch is actually in flight
+			bool hasFetch = false;
+			for (const auto &req : m_requests)
+				if (!req.isApi) { hasFetch = true; break; }
+
+			if (!hasFetch)
+			{
+				// No fetches running, try to start them now (HTTP may have become available)
+				if (!m_pHttp)
+					m_pHttp = SteamGameServerHTTP();
+				if (m_pHttp)
+				{
+					META_CONPRINTF("[WHITELIST] SteamGroup: slot=%d triggered deferred XML fetch.\n", slot);
+					StartXmlFetches();
+				}
+				else
+				{
+					META_CONPRINTF("[WHITELIST] SteamGroup: slot=%d - XML fetch deferred, HTTP not ready.\n", slot);
+				}
+			}
+
+			// Queue player to be resolved once all groups are fetched
 			PendingPlayer pp;
 			pp.xuid      = xuid;
 			pp.startTime = std::chrono::steady_clock::now();

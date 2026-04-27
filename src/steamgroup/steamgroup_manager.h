@@ -91,6 +91,7 @@ private:
 	// Merged group IDs: m_cfg.groupIds n IDs from whitelist.txt (populated in FetchGroups)
 	std::vector<uint64_t> m_effectiveGroupIds;
 
+	void StartXmlFetches();
 	void StartXmlFetch(uint64_t groupId, int page);
 	bool StartApiFetch(int slot, uint64_t xuid);
 
