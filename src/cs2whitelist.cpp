@@ -6,6 +6,7 @@
 #include "db/wl_database.h"
 #include "ics2admin.h"
 #include "player/player_manager.h"
+#include "steamgroup/steamgroup_manager.h"
 #include "utils/utils.h"
 #include "whitelist/whitelist_manager.h"
 
@@ -18,6 +19,7 @@ SH_DECL_HOOK6_void(IServerGameClients, OnClientConnected, SH_NOATTRIB, 0, CPlaye
 SH_DECL_HOOK4_void(IServerGameClients, ClientPutInServer, SH_NOATTRIB, 0, CPlayerSlot, char const *, int, uint64);
 SH_DECL_HOOK5_void(IServerGameClients, ClientDisconnect, SH_NOATTRIB, 0, CPlayerSlot, ENetworkDisconnectionReason, const char *, uint64,
 				   const char *);
+SH_DECL_HOOK3_void(IServerGameDLL, GameFrame, SH_NOATTRIB, 0, bool, bool, bool);
 
 // Plugin instance
 CS2WhitelistPlugin g_ThisPlugin;
@@ -47,6 +49,7 @@ bool CS2WhitelistPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t ma
 	SH_ADD_HOOK(IServerGameClients, OnClientConnected, g_pGameClients, SH_MEMBER(this, &CS2WhitelistPlugin::Hook_OnClientConnected), false);
 	SH_ADD_HOOK(IServerGameClients, ClientPutInServer, g_pGameClients, SH_MEMBER(this, &CS2WhitelistPlugin::Hook_ClientPutInServer), true);
 	SH_ADD_HOOK(IServerGameClients, ClientDisconnect, g_pGameClients, SH_MEMBER(this, &CS2WhitelistPlugin::Hook_ClientDisconnect), true);
+	SH_ADD_HOOK(IServerGameDLL, GameFrame, g_pServerGameDLL, SH_MEMBER(this, &CS2WhitelistPlugin::Hook_GameFrame), false);
 
 	g_pCVar = g_pICvar;
 	META_CONVAR_REGISTER(FCVAR_RELEASE | FCVAR_GAMEDLL);
@@ -62,7 +65,9 @@ bool CS2WhitelistPlugin::Unload(char *error, size_t maxlen)
 	SH_REMOVE_HOOK(IServerGameClients, OnClientConnected, g_pGameClients, SH_MEMBER(this, &CS2WhitelistPlugin::Hook_OnClientConnected), false);
 	SH_REMOVE_HOOK(IServerGameClients, ClientPutInServer, g_pGameClients, SH_MEMBER(this, &CS2WhitelistPlugin::Hook_ClientPutInServer), true);
 	SH_REMOVE_HOOK(IServerGameClients, ClientDisconnect, g_pGameClients, SH_MEMBER(this, &CS2WhitelistPlugin::Hook_ClientDisconnect), true);
+	SH_REMOVE_HOOK(IServerGameDLL, GameFrame, g_pServerGameDLL, SH_MEMBER(this, &CS2WhitelistPlugin::Hook_GameFrame), false);
 
+	g_SteamGroupManager.Shutdown();
 	g_WLDatabase.Shutdown();
 	META_CONPRINTF("[WHITELIST] Plugin unloaded.\n");
 	return true;
@@ -101,6 +106,19 @@ void CS2WhitelistPlugin::AllPluginsLoaded()
 		META_CONPRINTF("[WHITELIST] core.cfg not found, using ConVar defaults.\n");
 	}
 
+	// Init Steam group manager (must come after config load; uses SteamGameServerHTTP())
+	{
+		SteamGroupManager::Config sgCfg;
+		sgCfg.enabled  = g_WLConfig.sgEnabled;
+		sgCfg.method   = (g_WLConfig.sgMethod == "api") ? SteamGroupManager::Method::API
+		                                                 : SteamGroupManager::Method::XML;
+		sgCfg.apiKey   = g_WLConfig.sgApiKey;
+		sgCfg.timeout  = g_WLConfig.sgTimeout;
+		sgCfg.groupIds = g_WLConfig.sgGroupIds;
+		g_SteamGroupManager.Init(sgCfg);
+		g_SteamGroupManager.FetchGroups();
+	}
+
 	if (g_WLDatabase.Init(g_WLConfig))
 	{
 		g_WLDatabase.Connect(
@@ -121,6 +139,7 @@ void CS2WhitelistPlugin::OnLevelInit(char const *pMapName, char const *pMapEntit
 	g_WLManager.ClearBlacklistCache();
 	g_WLManager.ClearWhitelistCache();
 	g_WLManager.LoadFile();
+	g_SteamGroupManager.FetchGroups();
 
 	if (g_WLDatabase.IsConnected())
 	{
@@ -197,6 +216,20 @@ void CS2WhitelistPlugin::Hook_ClientPutInServer(CPlayerSlot slot, char const *ps
 		return;
 	}
 
+	// Steam group check (may be async, returns pending=true to defer the kick)
+	if (g_SteamGroupManager.IsEnabled())
+	{
+		bool pending = false;
+		bool inGroup = g_SteamGroupManager.CheckPlayer(idx, p->xuid, pending);
+		if (pending)
+			return; // async check in flight; kick (or allow) will happen from the callback
+		if (inGroup)
+		{
+			g_WLManager.AddToWhitelistCache(p->xuid);
+			return;
+		}
+	}
+
 	for (ICS2WhitelistListener *l : m_listeners)
 	{
 		if (l->OnWhitelistKickPre(idx) == WLKickResult::Block)
@@ -224,7 +257,14 @@ void CS2WhitelistPlugin::Hook_ClientPutInServer(CPlayerSlot slot, char const *ps
 void CS2WhitelistPlugin::Hook_ClientDisconnect(CPlayerSlot slot, ENetworkDisconnectionReason reason, const char *pszName, uint64 xuid,
 											   const char *pszNetworkID)
 {
-	g_WLPlayerManager.OnClientDisconnect(slot.Get());
+	const int idx = slot.Get();
+	g_SteamGroupManager.OnPlayerDisconnect(idx);
+	g_WLPlayerManager.OnClientDisconnect(idx);
+}
+
+void CS2WhitelistPlugin::Hook_GameFrame(bool simulating, bool bFirstTick, bool bLastTick)
+{
+	g_SteamGroupManager.OnGameFrame();
 }
 
 // ICS2Whitelist delegation

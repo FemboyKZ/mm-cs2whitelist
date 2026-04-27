@@ -4,6 +4,8 @@
 #include <string>
 #include <algorithm>
 #include <cstdlib>
+#include <cstdint>
+#include <stdexcept>
 
 // Reuse the headeronly KV tokeniser from mm-cs2admin
 #include "vendor/mm-cs2admin/src/config/kv_parser.h"
@@ -44,6 +46,36 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 		{
 			cfg->logMode = std::atoi(value.c_str());
 		}	}
+	else if (sec == "steamgroups")
+	{
+		if (k == "enabled")
+		{
+			cfg->sgEnabled = (value != "0");
+		}
+		else if (k == "method")
+		{
+			cfg->sgMethod = ToLower(value);
+		}
+		else if (k == "apikey")
+		{
+			cfg->sgApiKey = value;
+		}
+		else if (k == "timeout")
+		{
+			cfg->sgTimeout = static_cast<float>(std::atof(value.c_str()));
+		}
+	}
+	else if (sec == "groups")
+	{
+		// Nested under SteamGroups: each value is a 64-bit Steam group ID
+		try
+		{
+			uint64_t gid = std::stoull(value);
+			if (gid != 0)
+				cfg->sgGroupIds.push_back(gid);
+		}
+		catch (...) {}
+	}
 	else if (sec == "database")
 	{
 		if (k == "enabled")

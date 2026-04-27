@@ -7,6 +7,9 @@
 #include <filesystem>
 #include <fstream>
 #include <ctime>
+#include <cctype>
+#include <cstring>
+#include <stdexcept>
 
 // ConVars
 CConVar<bool> cv_enable("mm_whitelist_enable", FCVAR_RELEASE | FCVAR_GAMEDLL, "Enable the server whitelist (1) or disable it (0).", true);
@@ -57,6 +60,7 @@ bool WLManager::LoadFile()
 	m_whitelist.clear();
 	m_blacklistCache.clear();
 	m_whitelistCache.clear();
+	m_fileGroupIds.clear();
 
 	std::string path = GetWhitelistFilePath();
 	std::ifstream file(path);
@@ -69,10 +73,55 @@ bool WLManager::LoadFile()
 	}
 
 	int count = 0;
+	int groupCount = 0;
 	std::string line;
 	while (std::getline(file, line))
 	{
-		std::string entry = NormalizeEntry(line.c_str());
+		// Trim whitespace/CR so we can do a clean prefix check
+		const char *ws = " \t\r\n";
+		auto first = line.find_first_not_of(ws);
+		if (first == std::string::npos)
+			continue;
+		std::string trimmed = line.substr(first);
+
+		// Strip inline comment
+		auto cpos = trimmed.find("//");
+		if (cpos != std::string::npos)
+			trimmed = trimmed.substr(0, cpos);
+		auto last = trimmed.find_last_not_of(ws);
+		if (last == std::string::npos)
+			continue;
+		trimmed = trimmed.substr(0, last + 1);
+
+		if (trimmed.empty() || trimmed[0] == '#')
+			continue;
+
+		// Auto-detect bare group SteamID64 by account-type bits:
+		// (id64 >> 52) & 0xF == 7  →  k_EAccountTypeClan
+		// Group ID64s start around 103582791429521408 (0x0170000000000000),
+		// user ID64s start around 76561197960265728 (0x0110000100000000) - ranges don't overlap.
+		{
+			bool allDigits = !trimmed.empty();
+			for (char c : trimmed)
+				if (c < '0' || c > '9') { allDigits = false; break; }
+
+			if (allDigits && trimmed.size() >= 15)
+			{
+				try
+				{
+					uint64_t id = std::stoull(trimmed);
+					if (((id >> 52) & 0xF) == 7) // clan/group account type
+					{
+						m_fileGroupIds.push_back(id);
+						++groupCount;
+						continue;
+					}
+				}
+				catch (...) {}
+			}
+		}
+
+		std::string entry = NormalizeEntry(trimmed.c_str());
 		if (!entry.empty())
 		{
 			m_whitelist.insert(entry);
@@ -80,7 +129,10 @@ bool WLManager::LoadFile()
 		}
 	}
 
-	META_CONPRINTF("[WHITELIST] Loaded %d entries from %s.\n", count, path.c_str());
+	if (groupCount > 0)
+		META_CONPRINTF("[WHITELIST] Loaded %d entries + %d GROUP entries from %s.\n", count, groupCount, path.c_str());
+	else
+		META_CONPRINTF("[WHITELIST] Loaded %d entries from %s.\n", count, path.c_str());
 	return true;
 }
 
@@ -95,8 +147,16 @@ bool WLManager::SaveFile()
 	}
 
 	file << "// CS2 Whitelist - managed by cs2whitelist plugin\n"
-		 << "// One entry per line: STEAM_0:X:Y, SteamID64, or IPv4 address\n"
+		 << "// One entry per line: STEAM_0:X:Y, SteamID64, IPv4 address,\n"
+		 << "// or groupID64 to whitelist all members of a Steam group.\n"
 		 << "// Lines starting with // or # are comments\n\n";
+
+	for (uint64_t gid : m_fileGroupIds)
+	{
+		file << "GROUP:" << gid << "\n";
+	}
+	if (!m_fileGroupIds.empty())
+		file << "\n";
 
 	for (const auto &e : m_whitelist)
 	{

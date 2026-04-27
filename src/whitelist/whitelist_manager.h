@@ -3,7 +3,9 @@
 
 #include "common.h"
 #include <string>
+#include <vector>
 #include <unordered_set>
+#include <cstdint>
 #include <tier1/convar.h>
 
 // ConVar declarations
@@ -58,10 +60,14 @@ public:
 		return m_whitelist;
 	}
 
+	// Group IDs found in the whitelist file
+	const std::vector<uint64_t> &GetFileGroupIds() const { return m_fileGroupIds; }
+
 private:
 	std::unordered_set<std::string> m_whitelist;
 	std::unordered_set<uint64_t> m_blacklistCache;
 	std::unordered_set<uint64_t> m_whitelistCache;
+	std::vector<uint64_t> m_fileGroupIds;
 };
 
 extern WLManager g_WLManager;

@@ -65,6 +65,7 @@ public: // SH hook handlers (thin wrappers — logic lives in the managers)
 								bool bFakePlayer);
 	void Hook_ClientPutInServer(CPlayerSlot slot, char const *pszName, int type, uint64 xuid);
 	void Hook_ClientDisconnect(CPlayerSlot slot, ENetworkDisconnectionReason reason, const char *pszName, uint64 xuid, const char *pszNetworkID);
+	void Hook_GameFrame(bool simulating, bool bFirstTick, bool bLastTick);
 
 public: // ICS2Whitelist (delegates to g_WLManager)
 	bool IsPlayerWhitelisted(int slot) const override;

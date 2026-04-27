@@ -1,5 +1,6 @@
 #include "common.h"
 #include "whitelist/whitelist_manager.h"
+#include "steamgroup/steamgroup_manager.h"
 #include "utils/utils.h"
 #include "ics2admin.h"
 
@@ -31,6 +32,7 @@ CON_COMMAND_F(mm_whitelist_reload, "Reload the whitelist file from disk.", FCVAR
 
 	if (g_WLManager.LoadFile())
 	{
+		g_SteamGroupManager.FetchGroups();
 		ReplyToSlot(slot, "[WHITELIST] Reloaded %d entries from disk.\n", g_WLManager.GetEntryCount());
 	}
 	else

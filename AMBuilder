@@ -19,6 +19,7 @@ for sdk_target in MMSPlugin.sdk_targets:
     'src/cs2whitelist.cpp',
     'src/command/console_commands.cpp',
     'src/player/player_manager.cpp',
+    'src/steamgroup/steamgroup_manager.cpp',
     'src/whitelist/whitelist_manager.cpp',
     'src/utils/utils.cpp',
     'src/db/wl_config.cpp',

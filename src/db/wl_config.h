@@ -1,5 +1,7 @@
 #pragma once
 #include <string>
+#include <vector>
+#include <cstdint>
 
 struct WLConfig
 {
@@ -20,6 +22,13 @@ struct WLConfig
 	int dbPort = 3306;
 	std::string dbPath = "addons/cs2whitelist/whitelist.db";
 	std::string dbPrefix = "cs2wl";
+
+	// [SteamGroups] section
+	bool sgEnabled = false;
+	std::string sgMethod = "xml"; // "xml" or "api"
+	std::string sgApiKey;
+	float sgTimeout = 5.0f;
+	std::vector<uint64_t> sgGroupIds;
 };
 
 // Parse cfg/cs2whitelist/core.cfg into out.
