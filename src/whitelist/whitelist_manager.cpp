@@ -97,7 +97,7 @@ bool WLManager::LoadFile()
 			continue;
 
 		// Auto-detect bare group SteamID64 by account-type bits:
-		// (id64 >> 52) & 0xF == 7  →  k_EAccountTypeClan
+		// (id64 >> 52) & 0xF == 7  ->  k_EAccountTypeClan
 		// Group ID64s start around 103582791429521408 (0x0170000000000000),
 		// user ID64s start around 76561197960265728 (0x0110000100000000) - ranges don't overlap.
 		{
