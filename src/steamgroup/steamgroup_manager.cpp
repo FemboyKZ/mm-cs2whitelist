@@ -506,6 +506,11 @@ bool SteamGroupManager::ParseApiResponse(uint64_t xuid, const std::string &body)
 		{
 			uint64_t gid = std::strtoull(body.c_str() + pos, nullptr, 10);
 
+			// The API returns short 32-bit clan IDs; promote to full group ID64
+			// using the same formula as whitelist_manager.cpp: 0x0170000000000000 | shortId
+			if (gid != 0 && (gid >> 32) == 0)
+				gid = 0x0170000000000000ULL | gid;
+
 			for (uint64_t wanted : m_effectiveGroupIds)
 			{
 				if (gid == wanted)
