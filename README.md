@@ -32,6 +32,7 @@ Supported entry types:
 | SteamID64 | `76561198012345678` |
 | IPv4 address | `192.168.1.100` |
 | Steam group ID64 | `103582791429521408` |
+| Steam group ID32 | `42850207` |
 
 ### ConVars
 

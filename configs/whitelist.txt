@@ -4,10 +4,12 @@
 //   76561198...   (SteamID64 decimal)
 //   1.2.3.4       (IPv4 address, exact match, no CIDR)
 //   103582791...  (Steam group ID64)
+//   42850207      (Steam group ID32)
 // Lines starting with // or # are treated as comments and ignored.
 
 // Example entries (remove the leading // to activate):
 // STEAM_0:1:12345678
 // 76561198012345678
 // 103582791429521408
+// 42850207
 // 192.168.1.100
