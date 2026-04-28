@@ -11,7 +11,6 @@
 #include <cstring>
 #include <stdexcept>
 
-// ConVars
 CConVar<bool> cv_enable("mm_whitelist_enable", FCVAR_RELEASE | FCVAR_GAMEDLL, "Enable the server whitelist (1) or disable it (0).", true);
 
 CConVar<bool> cv_immunity("mm_whitelist_immunity", FCVAR_RELEASE | FCVAR_GAMEDLL,
@@ -29,14 +28,12 @@ CConVar<CUtlString> cv_filename("mm_whitelist_filename", FCVAR_RELEASE | FCVAR_G
 								"whitelist.txt");
 
 CConVar<int> cv_log("mm_whitelist_log", FCVAR_RELEASE | FCVAR_GAMEDLL,
-				   "Log failed join attempts to console and daily log file. "
-				   "0=off  1=always  2=once per player per map.",
-				   0, true, 0, true, 2);
+					"Log failed join attempts to console and daily log file. "
+					"0=off  1=always  2=once per player per map.",
+					0, true, 0, true, 2);
 
-// Global instance
 WLManager g_WLManager;
 
-// File path helper
 std::string GetWhitelistFilePath()
 {
 	const char *raw = cv_filename.Get().Get();
@@ -54,7 +51,6 @@ std::string GetWhitelistFilePath()
 	return path;
 }
 
-// File I/O
 bool WLManager::LoadFile()
 {
 	m_whitelist.clear();
@@ -77,24 +73,30 @@ bool WLManager::LoadFile()
 	std::string line;
 	while (std::getline(file, line))
 	{
-		// Trim whitespace/CR so we can do a clean prefix check
 		const char *ws = " \t\r\n";
 		auto first = line.find_first_not_of(ws);
 		if (first == std::string::npos)
+		{
 			continue;
+		}
 		std::string trimmed = line.substr(first);
 
-		// Strip inline comment
 		auto cpos = trimmed.find("//");
 		if (cpos != std::string::npos)
+		{
 			trimmed = trimmed.substr(0, cpos);
+		}
 		auto last = trimmed.find_last_not_of(ws);
 		if (last == std::string::npos)
+		{
 			continue;
+		}
 		trimmed = trimmed.substr(0, last + 1);
 
 		if (trimmed.empty() || trimmed[0] == '#')
+		{
 			continue;
+		}
 
 		// Detect all-digit group IDs:
 		//   - Full group ID64: (id >> 52) & 0xF == 7  (k_EAccountTypeClan, ~103582791...)
@@ -107,14 +109,24 @@ bool WLManager::LoadFile()
 			{
 				char upper[7] = {};
 				for (int i = 0; i < 6; ++i)
+				{
 					upper[i] = static_cast<char>(trimmed[i] >= 'a' && trimmed[i] <= 'z' ? trimmed[i] - 32 : trimmed[i]);
+				}
 				if (std::memcmp(upper, "GROUP:", 6) == 0)
+				{
 					numStart = trimmed.c_str() + 6;
+				}
 			}
 
 			bool allDigits = (*numStart != '\0');
 			for (const char *p = numStart; *p; ++p)
-				if (*p < '0' || *p > '9') { allDigits = false; break; }
+			{
+				if (*p < '0' || *p > '9')
+				{
+					allDigits = false;
+					break;
+				}
+			}
 
 			if (allDigits && *numStart != '\0')
 			{
@@ -123,7 +135,9 @@ bool WLManager::LoadFile()
 				{
 					// Short 32-bit clan ID - promote to full group ID64
 					if ((id >> 32) == 0)
+					{
 						id = 0x0170000000000000ULL | id;
+					}
 
 					if (((id >> 52) & 0xF) == 7) // k_EAccountTypeClan
 					{
@@ -144,9 +158,13 @@ bool WLManager::LoadFile()
 	}
 
 	if (groupCount > 0)
+	{
 		META_CONPRINTF("[WHITELIST] Loaded %d entries + %d GROUP entries from %s.\n", count, groupCount, path.c_str());
+	}
 	else
+	{
 		META_CONPRINTF("[WHITELIST] Loaded %d entries from %s.\n", count, path.c_str());
+	}
 	return true;
 }
 
@@ -170,7 +188,9 @@ bool WLManager::SaveFile()
 		file << "GROUP:" << gid << "\n";
 	}
 	if (!m_fileGroupIds.empty())
+	{
 		file << "\n";
+	}
 
 	for (const auto &e : m_whitelist)
 	{
@@ -180,7 +200,6 @@ bool WLManager::SaveFile()
 	return true;
 }
 
-// Entry management
 bool WLManager::AddEntry(const char *entry)
 {
 	std::string normalized = NormalizeEntry(entry);
@@ -213,7 +232,6 @@ bool WLManager::RemoveEntry(const char *entry)
 	return erased;
 }
 
-// Queries
 bool WLManager::IsPlayerWhitelisted(int slot) const
 {
 	const PlayerInfo *p = g_WLPlayerManager.GetPlayer(slot);
@@ -264,7 +282,6 @@ void WLManager::PrintList(int slot) const
 	}
 }
 
-// Blacklist cache
 bool WLManager::IsBlacklisted(uint64_t xuid) const
 {
 	return xuid != 0 && m_blacklistCache.count(xuid) > 0;
@@ -273,7 +290,9 @@ bool WLManager::IsBlacklisted(uint64_t xuid) const
 void WLManager::AddToBlacklistCache(uint64_t xuid)
 {
 	if (xuid != 0)
+	{
 		m_blacklistCache.insert(xuid);
+	}
 }
 
 void WLManager::ClearBlacklistCache()
@@ -281,7 +300,6 @@ void WLManager::ClearBlacklistCache()
 	m_blacklistCache.clear();
 }
 
-// Whitelist cache
 bool WLManager::IsWhitelistCached(uint64_t xuid) const
 {
 	return xuid != 0 && m_whitelistCache.count(xuid) > 0;
@@ -290,7 +308,9 @@ bool WLManager::IsWhitelistCached(uint64_t xuid) const
 void WLManager::AddToWhitelistCache(uint64_t xuid)
 {
 	if (xuid != 0)
+	{
 		m_whitelistCache.insert(xuid);
+	}
 }
 
 void WLManager::ClearWhitelistCache()
@@ -298,15 +318,18 @@ void WLManager::ClearWhitelistCache()
 	m_whitelistCache.clear();
 }
 
-// Kick logging
 void WLLogKick(const char *name, uint64_t xuid, const char *ip, bool alreadyCached)
 {
 	int logMode = cv_log.Get();
 	if (logMode == 0)
+	{
 		return;
+	}
 	// mode 2: only log first time (alreadyCached == false means first rejection)
 	if (logMode == 2 && alreadyCached)
+	{
 		return;
+	}
 
 	std::string authid = xuid ? SteamID64ToAuthId(xuid) : "unknown";
 
@@ -326,9 +349,7 @@ void WLLogKick(const char *name, uint64_t xuid, const char *ip, bool alreadyCach
 	const char *safeName = name ? name : "?";
 	const char *safeIp = ip ? ip : "?";
 
-	META_CONPRINTF("[WHITELIST] [%s] Kick: \"%s\" xuid=%llu authid=%s ip=%s\n",
-				   timebuf, safeName,
-				   static_cast<unsigned long long>(xuid),
+	META_CONPRINTF("[WHITELIST] [%s] Kick: \"%s\" xuid=%llu authid=%s ip=%s\n", timebuf, safeName, static_cast<unsigned long long>(xuid),
 				   authid.c_str(), safeIp);
 
 	char logDir[512];
@@ -343,9 +364,6 @@ void WLLogKick(const char *name, uint64_t xuid, const char *ip, bool alreadyCach
 	std::ofstream f(logPath, std::ios::app);
 	if (f.is_open())
 	{
-		f << "[" << timebuf << "] Kick: \""
-		  << safeName << "\" xuid=" << xuid
-		  << " authid=" << authid
-		  << " ip=" << safeIp << "\n";
+		f << "[" << timebuf << "] Kick: \"" << safeName << "\" xuid=" << xuid << " authid=" << authid << " ip=" << safeIp << "\n";
 	}
 }

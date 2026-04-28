@@ -14,18 +14,15 @@
 #include <iserver.h>
 #include <tier1/convar.h>
 
-// SourceHook hook declarations
 SH_DECL_HOOK6_void(IServerGameClients, OnClientConnected, SH_NOATTRIB, 0, CPlayerSlot, const char *, uint64, const char *, const char *, bool);
 SH_DECL_HOOK4_void(IServerGameClients, ClientPutInServer, SH_NOATTRIB, 0, CPlayerSlot, char const *, int, uint64);
 SH_DECL_HOOK5_void(IServerGameClients, ClientDisconnect, SH_NOATTRIB, 0, CPlayerSlot, ENetworkDisconnectionReason, const char *, uint64,
 				   const char *);
 SH_DECL_HOOK3_void(IServerGameDLL, GameFrame, SH_NOATTRIB, 0, bool, bool, bool);
 
-// Plugin instance
 CS2WhitelistPlugin g_ThisPlugin;
 PLUGIN_EXPOSE(CS2WhitelistPlugin, g_ThisPlugin);
 
-// Engine + Metamod globals
 PLUGIN_GLOBALVARS();
 IVEngineServer *g_pEngine = nullptr;
 IServerGameClients *g_pGameClients = nullptr;
@@ -33,7 +30,6 @@ IServerGameDLL *g_pServerGameDLL = nullptr;
 ICvar *g_pICvar = nullptr;
 ICS2Admin *g_pCS2Admin = nullptr;
 
-// Load / Unload
 bool CS2WhitelistPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, bool late)
 {
 	PLUGIN_SAVEVARS();
@@ -73,7 +69,6 @@ bool CS2WhitelistPlugin::Unload(char *error, size_t maxlen)
 	return true;
 }
 
-// AllPluginsLoaded / OnLevelInit
 void CS2WhitelistPlugin::AllPluginsLoaded()
 {
 	g_pCS2Admin = static_cast<ICS2Admin *>(g_SMAPI->MetaFactory(CS2ADMIN_INTERFACE, nullptr, nullptr));
@@ -106,14 +101,12 @@ void CS2WhitelistPlugin::AllPluginsLoaded()
 		META_CONPRINTF("[WHITELIST] core.cfg not found, using ConVar defaults.\n");
 	}
 
-	// Init Steam group manager (must come after config load; uses SteamGameServerHTTP())
 	{
 		SteamGroupManager::Config sgCfg;
-		sgCfg.enabled  = g_WLConfig.sgEnabled;
-		sgCfg.method   = (g_WLConfig.sgMethod == "api") ? SteamGroupManager::Method::API
-		                                                 : SteamGroupManager::Method::XML;
-		sgCfg.apiKey   = g_WLConfig.sgApiKey;
-		sgCfg.timeout  = g_WLConfig.sgTimeout;
+		sgCfg.enabled = g_WLConfig.sgEnabled;
+		sgCfg.method = (g_WLConfig.sgMethod == "api") ? SteamGroupManager::Method::API : SteamGroupManager::Method::XML;
+		sgCfg.apiKey = g_WLConfig.sgApiKey;
+		sgCfg.timeout = g_WLConfig.sgTimeout;
 		sgCfg.groupIds = g_WLConfig.sgGroupIds;
 		g_SteamGroupManager.Init(sgCfg);
 		g_SteamGroupManager.FetchGroups();
@@ -147,7 +140,6 @@ void CS2WhitelistPlugin::OnLevelInit(char const *pMapName, char const *pMapEntit
 	}
 }
 
-// OnMetamodQuery
 void *CS2WhitelistPlugin::OnMetamodQuery(const char *iface, int *ret)
 {
 	if (!strcmp(iface, CS2WHITELIST_INTERFACE))
@@ -165,7 +157,6 @@ void *CS2WhitelistPlugin::OnMetamodQuery(const char *iface, int *ret)
 	return nullptr;
 }
 
-// SH hooks
 void CS2WhitelistPlugin::Hook_OnClientConnected(CPlayerSlot slot, const char *pszName, uint64 xuid, const char *pszNetworkID, const char *pszAddress,
 												bool bFakePlayer)
 {
@@ -222,7 +213,9 @@ void CS2WhitelistPlugin::Hook_ClientPutInServer(CPlayerSlot slot, char const *ps
 		bool pending = false;
 		bool inGroup = g_SteamGroupManager.CheckPlayer(idx, p->xuid, pending);
 		if (pending)
+		{
 			return; // async check in flight; kick (or allow) will happen from the callback
+		}
 		if (inGroup)
 		{
 			g_WLManager.AddToWhitelistCache(p->xuid);
@@ -267,7 +260,6 @@ void CS2WhitelistPlugin::Hook_GameFrame(bool simulating, bool bFirstTick, bool b
 	g_SteamGroupManager.OnGameFrame();
 }
 
-// ICS2Whitelist delegation
 bool CS2WhitelistPlugin::IsPlayerWhitelisted(int slot) const
 {
 	return g_WLManager.IsPlayerWhitelisted(slot);
@@ -314,7 +306,9 @@ bool CS2WhitelistPlugin::AddEntry(const char *entry)
 {
 	bool ok = g_WLManager.AddEntry(entry);
 	if (ok)
+	{
 		g_WLManager.SaveFile();
+	}
 	return ok;
 }
 
@@ -322,14 +316,18 @@ bool CS2WhitelistPlugin::RemoveEntry(const char *entry)
 {
 	bool ok = g_WLManager.RemoveEntry(entry);
 	if (ok)
+	{
 		g_WLManager.SaveFile();
+	}
 	return ok;
 }
 
 void CS2WhitelistPlugin::AddListener(ICS2WhitelistListener *listener)
 {
 	if (listener)
+	{
 		m_listeners.push_back(listener);
+	}
 }
 
 void CS2WhitelistPlugin::RemoveListener(ICS2WhitelistListener *listener)

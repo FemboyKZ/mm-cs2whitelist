@@ -15,11 +15,11 @@ public:
 	void AllPluginsLoaded();
 	void *OnMetamodQuery(const char *iface, int *ret);
 
-public: // IMetamodListener
+public:
 	void OnLevelInit(char const *pMapName, char const *pMapEntities, char const *pOldLevel, char const *pLandmarkName, bool loadGame,
 					 bool background);
 
-public: // ISmmPlugin info
+public:
 	const char *GetAuthor()
 	{
 		return PLUGIN_AUTHOR;
@@ -60,14 +60,14 @@ public: // ISmmPlugin info
 		return PLUGIN_LOGTAG;
 	}
 
-public: // SH hook handlers (thin wrappers — logic lives in the managers)
+public:
 	void Hook_OnClientConnected(CPlayerSlot slot, const char *pszName, uint64 xuid, const char *pszNetworkID, const char *pszAddress,
 								bool bFakePlayer);
 	void Hook_ClientPutInServer(CPlayerSlot slot, char const *pszName, int type, uint64 xuid);
 	void Hook_ClientDisconnect(CPlayerSlot slot, ENetworkDisconnectionReason reason, const char *pszName, uint64 xuid, const char *pszNetworkID);
 	void Hook_GameFrame(bool simulating, bool bFirstTick, bool bLastTick);
 
-public: // ICS2Whitelist (delegates to g_WLManager)
+public:
 	bool IsPlayerWhitelisted(int slot) const override;
 	bool IsEntryWhitelisted(const char *entry) const override;
 	int GetEntryCount() const override;

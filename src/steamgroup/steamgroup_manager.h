@@ -11,7 +11,7 @@
 
 #include <steam/isteamhttp.h>
 
-// Forward-declared here; full type pulled in via isteamhttp.h -> steam_api_common.h
+// Forward-declared here, full type pulled in via isteamhttp.h -> steam_api_common.h
 // CCallResult<T,P> and HTTPRequestCompleted_t are available after that include.
 
 class SteamGroupManager
@@ -25,11 +25,11 @@ public:
 
 	struct Config
 	{
-		bool        enabled  = false;
-		Method      method   = Method::XML;
-		std::string apiKey;                   // Required for Method::API
-		float       timeout  = 10.0f;         // Seconds before a pending player is kicked
-		std::vector<uint64_t> groupIds;       // 64-bit Steam group IDs
+		bool enabled = false;
+		Method method = Method::XML;
+		std::string apiKey;
+		float timeout = 10.0f;
+		std::vector<uint64_t> groupIds;
 	};
 
 	void Init(const Config &cfg);
@@ -49,18 +49,21 @@ public:
 	// Cancel any in-progress check for a disconnecting player.
 	void OnPlayerDisconnect(int slot);
 
-	bool IsEnabled() const { return m_cfg.enabled; }
+	bool IsEnabled() const
+	{
+		return m_cfg.enabled;
+	}
 
 private:
 	// One context per active HTTP request. Stored in std::list for pointer
 	// stability (CCallResult cannot be moved or copied).
 	struct RequestCtx
 	{
-		bool     isApi;        // true = API per-player check; false = XML group fetch
-		uint64_t groupId;      // XML: group being fetched
-		int      page;         // XML: 1-based page number
-		int      slot;         // API: player slot (-1 for XML)
-		uint64_t xuid;         // API: player steamid64
+		bool isApi;       // true = API per-player check; false = XML group fetch
+		uint64_t groupId; // XML: group being fetched
+		int page;         // XML: 1-based page number
+		int slot;         // API: player slot (-1 for XML)
+		uint64_t xuid;    // API: player steamid64
 		HTTPRequestHandle hRequest = INVALID_HTTPREQUEST_HANDLE;
 		CCallResult<SteamGroupManager, HTTPRequestCompleted_t> callResult;
 	};
@@ -86,7 +89,7 @@ private:
 	// Players waiting for an API response: slot -> info
 	std::unordered_map<int, PendingPlayer> m_pendingApi;
 
-	Config      m_cfg;
+	Config m_cfg;
 	ISteamHTTP *m_pHttp = nullptr;
 	// Merged group IDs: m_cfg.groupIds n IDs from whitelist.txt (populated in FetchGroups)
 	std::vector<uint64_t> m_effectiveGroupIds;

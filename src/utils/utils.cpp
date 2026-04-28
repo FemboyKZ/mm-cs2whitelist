@@ -27,14 +27,12 @@ std::string NormalizeEntry(const char *input)
 
 	std::string s(input);
 
-	// Strip inline comment (// ...)
 	auto cpos = s.find("//");
 	if (cpos != std::string::npos)
 	{
 		s = s.substr(0, cpos);
 	}
 
-	// Trim surrounding whitespace and CR
 	const char *ws = " \t\r\n";
 	auto first = s.find_first_not_of(ws);
 	if (first == std::string::npos)
@@ -48,7 +46,7 @@ std::string NormalizeEntry(const char *input)
 		return {};
 	}
 
-	// STEAM_X:Y:Z -> STEAM_0:Y:Z (case insensitive prefix)
+	// STEAM_X:Y:Z -> STEAM_0:Y:Z
 	if (s.size() > 6)
 	{
 		char prefix[7] = {};

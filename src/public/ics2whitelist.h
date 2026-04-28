@@ -3,7 +3,6 @@
 
 #include <cstdint>
 
-// Interface string passed to ISmmAPI::MetaFactory().
 #define CS2WHITELIST_INTERFACE "ICS2Whitelist002"
 
 // Kick-forward listener interface.
@@ -11,7 +10,7 @@
 enum class WLKickResult
 {
 	Allow, // proceed with kick (default)
-	Block, // suppress the kick — another plugin is handling access
+	Block, // suppress the kick - another plugin is handling access
 };
 
 class ICS2WhitelistListener
@@ -20,7 +19,10 @@ public:
 	// Called just before a player is kicked by the whitelist (first rejection only,
 	// not repeat reconnects that are handled by the rejection cache).
 	// Return Block to cancel the kick.
-	virtual WLKickResult OnWhitelistKickPre(int slot) { return WLKickResult::Allow; }
+	virtual WLKickResult OnWhitelistKickPre(int slot)
+	{
+		return WLKickResult::Allow;
+	}
 
 	virtual ~ICS2WhitelistListener() = default;
 };

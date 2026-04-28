@@ -46,14 +46,22 @@ public:
 	bool IsBlacklisted(uint64_t xuid) const;
 	void AddToBlacklistCache(uint64_t xuid);
 	void ClearBlacklistCache();
-	int GetBlacklistCacheCount() const { return static_cast<int>(m_blacklistCache.size()); }
+
+	int GetBlacklistCacheCount() const
+	{
+		return static_cast<int>(m_blacklistCache.size());
+	}
 
 	// Whitelist cache: tracks xuids confirmed whitelisted this map.
 	// Allows in on reconnect (and future async checks like Steam groups).
 	bool IsWhitelistCached(uint64_t xuid) const;
 	void AddToWhitelistCache(uint64_t xuid);
 	void ClearWhitelistCache();
-	int GetWhitelistCacheCount() const { return static_cast<int>(m_whitelistCache.size()); }
+
+	int GetWhitelistCacheCount() const
+	{
+		return static_cast<int>(m_whitelistCache.size());
+	}
 
 	std::unordered_set<std::string> &GetSet()
 	{
@@ -61,7 +69,10 @@ public:
 	}
 
 	// Group IDs found in the whitelist file
-	const std::vector<uint64_t> &GetFileGroupIds() const { return m_fileGroupIds; }
+	const std::vector<uint64_t> &GetFileGroupIds() const
+	{
+		return m_fileGroupIds;
+	}
 
 private:
 	std::unordered_set<std::string> m_whitelist;

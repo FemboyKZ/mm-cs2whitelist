@@ -7,7 +7,6 @@
 #include <cstdint>
 #include <stdexcept>
 
-// Reuse the headeronly KV tokeniser from mm-cs2admin
 #include "vendor/mm-cs2admin/src/config/kv_parser.h"
 
 WLConfig g_WLConfig;
@@ -42,10 +41,12 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 		else if (k == "filename")
 		{
 			cfg->filename = value;
-		}		else if (k == "log")
+		}
+		else if (k == "log")
 		{
 			cfg->logMode = std::atoi(value.c_str());
-		}	}
+		}
+	}
 	else if (sec == "steamgroups")
 	{
 		if (k == "enabled")
@@ -67,15 +68,22 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 	}
 	else if (sec == "groups")
 	{
-		// Nested under SteamGroups: each value is a 64-bit Steam group ID
 		bool allDigits = !value.empty();
 		for (char c : value)
-			if (c < '0' || c > '9') { allDigits = false; break; }
+		{
+			if (c < '0' || c > '9')
+			{
+				allDigits = false;
+				break;
+			}
+		}
 		if (allDigits)
 		{
 			uint64_t gid = std::strtoull(value.c_str(), nullptr, 10);
 			if (gid != 0)
+			{
 				cfg->sgGroupIds.push_back(gid);
+			}
 		}
 	}
 	else if (sec == "database")

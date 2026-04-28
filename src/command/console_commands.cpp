@@ -15,12 +15,8 @@ CON_COMMAND_F(mm_whitelist_status, "Show whitelist status (enabled, entry count,
 		return;
 	}
 
-	ReplyToSlot(slot, "[WHITELIST] enabled=%s | entries=%d | wl_cache=%d | bl_cache=%d | file=%s\n",
-				cv_enable.Get() ? "yes" : "no",
-				g_WLManager.GetEntryCount(),
-				g_WLManager.GetWhitelistCacheCount(),
-				g_WLManager.GetBlacklistCacheCount(),
-				cv_filename.Get().Get());
+	ReplyToSlot(slot, "[WHITELIST] enabled=%s | entries=%d | wl_cache=%d | bl_cache=%d | file=%s\n", cv_enable.Get() ? "yes" : "no",
+				g_WLManager.GetEntryCount(), g_WLManager.GetWhitelistCacheCount(), g_WLManager.GetBlacklistCacheCount(), cv_filename.Get().Get());
 }
 
 CON_COMMAND_F(mm_whitelist_reload, "Reload the whitelist file from disk.", FCVAR_GAMEDLL | FCVAR_RELEASE)
@@ -37,11 +33,11 @@ CON_COMMAND_F(mm_whitelist_reload, "Reload the whitelist file from disk.", FCVAR
 		if (g_WLDatabase.IsConnected())
 		{
 			g_WLDatabase.LoadEntries(g_WLManager.GetSet(),
-				[slot](int count)
-				{
-					ReplyToSlot(slot, "[WHITELIST] Reloaded %d entries from disk + %d from database.\n",
-						g_WLManager.GetEntryCount() - count, count);
-				});
+									 [slot](int count)
+									 {
+										 ReplyToSlot(slot, "[WHITELIST] Reloaded %d entries from disk + %d from database.\n",
+													 g_WLManager.GetEntryCount() - count, count);
+									 });
 		}
 		else
 		{

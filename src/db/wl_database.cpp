@@ -13,7 +13,6 @@
 
 WLDatabase g_WLDatabase;
 
-// Init
 bool WLDatabase::Init(const WLConfig &cfg)
 {
 	if (!cfg.dbEnabled)
@@ -60,7 +59,6 @@ bool WLDatabase::Init(const WLConfig &cfg)
 	return true;
 }
 
-// Connect
 void WLDatabase::Connect(std::function<void(bool)> callback)
 {
 	if (!m_bEnabled)
@@ -131,7 +129,6 @@ void WLDatabase::Connect(std::function<void(bool)> callback)
 		});
 }
 
-// Shutdown
 void WLDatabase::Shutdown()
 {
 	if (m_pConnection)
@@ -146,7 +143,6 @@ void WLDatabase::Shutdown()
 	m_pSQLInterface = nullptr;
 }
 
-// Schema
 void WLDatabase::CreateSchema()
 {
 	const char *p = m_prefix.c_str();
@@ -179,7 +175,6 @@ void WLDatabase::CreateSchema()
 	Query(q, [](ISQLQuery *) {});
 }
 
-// Load entries
 void WLDatabase::LoadEntries(std::unordered_set<std::string> &outSet, std::function<void(int)> callback)
 {
 	if (!m_bConnected)
@@ -203,8 +198,6 @@ void WLDatabase::LoadEntries(std::unordered_set<std::string> &outSet, std::funct
 		snprintf(q, sizeof(q), "SELECT `authid` FROM `%s_whitelist`", p);
 	}
 
-	// Capture outSet by reference - safe because LoadEntries is called on the main
-	// thread and the callback fires on the main thread too (sql_mm guarantees this).
 	Query(q,
 		  [&outSet, callback](ISQLQuery *query)
 		  {
@@ -240,7 +233,6 @@ void WLDatabase::LoadEntries(std::unordered_set<std::string> &outSet, std::funct
 		  });
 }
 
-// AddEntry / RemoveEntry
 void WLDatabase::AddEntry(const std::string &authid)
 {
 	if (!m_bConnected)
@@ -287,7 +279,6 @@ void WLDatabase::RemoveEntry(const std::string &authid)
 	Query(q, [](ISQLQuery *) {});
 }
 
-// Internal helpers
 void WLDatabase::Query(const char *query, std::function<void(ISQLQuery *)> cb)
 {
 	if (!m_pConnection || !m_bConnected)
