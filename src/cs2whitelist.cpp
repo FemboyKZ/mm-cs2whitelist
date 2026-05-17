@@ -71,6 +71,19 @@ bool CS2WhitelistPlugin::Unload(char *error, size_t maxlen)
 	return true;
 }
 
+void CS2WhitelistPlugin::OnPluginLoad(PluginId id)
+{
+	// Re-check if mm-cs2admin is now available (e.g. loaded dynamically after us).
+	if (!g_pCS2Admin)
+	{
+		g_pCS2Admin = static_cast<ICS2Admin *>(g_SMAPI->MetaFactory(CS2ADMIN_INTERFACE, nullptr, nullptr));
+		if (g_pCS2Admin)
+		{
+			META_CONPRINTF("[WHITELIST] mm-cs2admin interface acquired (late load).\n");
+		}
+	}
+}
+
 void CS2WhitelistPlugin::OnPluginUnload(PluginId id)
 {
 	// Re-check if mm-cs2admin is still available; if it was the unloaded plugin,

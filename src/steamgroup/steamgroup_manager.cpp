@@ -69,6 +69,7 @@ void SteamGroupManager::Shutdown()
 	m_memberSets.clear();
 	m_fetchedGroups.clear();
 	m_expectedCounts.clear();
+	m_pHttp = nullptr;
 }
 
 void SteamGroupManager::FetchGroups()
