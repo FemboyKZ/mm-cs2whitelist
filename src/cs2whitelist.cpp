@@ -63,10 +63,19 @@ bool CS2WhitelistPlugin::Unload(char *error, size_t maxlen)
 	SH_REMOVE_HOOK(IServerGameClients, ClientDisconnect, g_pGameClients, SH_MEMBER(this, &CS2WhitelistPlugin::Hook_ClientDisconnect), true);
 	SH_REMOVE_HOOK(IServerGameDLL, GameFrame, g_pServerGameDLL, SH_MEMBER(this, &CS2WhitelistPlugin::Hook_GameFrame), false);
 
+	g_pCS2Admin = nullptr;
+	m_listeners.clear();
 	g_SteamGroupManager.Shutdown();
 	g_WLDatabase.Shutdown();
 	META_CONPRINTF("[WHITELIST] Plugin unloaded.\n");
 	return true;
+}
+
+void CS2WhitelistPlugin::OnPluginUnload(PluginId id)
+{
+	// Re-check if mm-cs2admin is still available; if it was the unloaded plugin,
+	// MetaFactory will return nullptr and we clear the dangling pointer.
+	g_pCS2Admin = static_cast<ICS2Admin *>(g_SMAPI->MetaFactory(CS2ADMIN_INTERFACE, nullptr, nullptr));
 }
 
 void CS2WhitelistPlugin::AllPluginsLoaded()
