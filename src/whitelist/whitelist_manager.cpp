@@ -81,7 +81,19 @@ bool WLManager::LoadFile()
 		}
 		std::string trimmed = line.substr(first);
 
-		auto cpos = trimmed.find("//");
+		auto cpos = trimmed.find_first_of(";#");
+		if (cpos == std::string::npos)
+		{
+			cpos = trimmed.find("//");
+		}
+		else
+		{
+			auto slashes = trimmed.find("//");
+			if (slashes != std::string::npos && slashes < cpos)
+			{
+				cpos = slashes;
+			}
+		}
 		if (cpos != std::string::npos)
 		{
 			trimmed = trimmed.substr(0, cpos);
@@ -92,11 +104,6 @@ bool WLManager::LoadFile()
 			continue;
 		}
 		trimmed = trimmed.substr(0, last + 1);
-
-		if (trimmed.empty() || trimmed[0] == '#')
-		{
-			continue;
-		}
 
 		// Detect all-digit group IDs:
 		//   - Full group ID64: (id >> 52) & 0xF == 7  (k_EAccountTypeClan, ~103582791...)
