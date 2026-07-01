@@ -53,15 +53,7 @@ Supported entry types:
 All commands require [mm-cs2admin](https://github.com/FemboyKZ/mm-cs2admin) for in-game use.
 Without it, commands can only be issued from the **server console**.
 
-| Command | Required flag | Description |
-| --- | --- | --- |
-| `mm_whitelist_status` | `b` (Generic) | Show status, entry count, cache sizes, and file name. |
-| `mm_whitelist_list` | `b` (Generic) | Print all whitelist entries. |
-| `mm_whitelist_exist <id\|ip>` | `b` (Generic) | Check whether a SteamID or IP is in the loaded whitelist. |
-| `mm_whitelist_reload` | `h` (ConVars) | Reload whitelist from disk (also clears both caches). |
-| `mm_whitelist_cache_clear` | `h` (ConVars) | Clear the per-map whitelist and rejection caches. Forces all players to re-run the full whitelist check on next connect. |
-| `mm_whitelist_add <id\|ip>` | `e` (Unban) | Add a SteamID or IP and save. |
-| `mm_whitelist_remove <id\|ip>` | `e` (Unban) | Remove a SteamID or IP and save. |
+See [COMMANDS](./COMMANDS.md) for more.
 
 ## Build
 
