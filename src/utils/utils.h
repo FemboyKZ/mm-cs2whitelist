@@ -18,9 +18,10 @@ std::string StripPort(const char *addr);
 // Printf-style reply to a player slot or the server console (slot < 0).
 void ReplyToSlot(int slot, const char *fmt, ...);
 
-// Check whether slot has the given cs2admin flag.
+// Check whether slot may run commandName via cs2admin's override chain.
+// defaultFlag is the required flag when no override applies. Group "whitelist".
 // Server console (slot < 0) always passes.
 // Prints a denial message to the player if access is refused.
-bool HasAdminAccess(int slot, uint32_t flag);
+bool HasAdminAccess(int slot, const char *commandName, uint32_t defaultFlag);
 
 #endif // _INCLUDE_WL_UTILS_H_

@@ -119,7 +119,7 @@ void ReplyToSlot(int slot, const char *fmt, ...)
 	}
 }
 
-bool HasAdminAccess(int slot, uint32_t flag)
+bool HasAdminAccess(int slot, const char *commandName, uint32_t defaultFlag)
 {
 	if (slot < 0)
 	{
@@ -136,19 +136,14 @@ bool HasAdminAccess(int slot, uint32_t flag)
 		return false;
 	}
 
-	if (g_pCS2Admin->HasFlag(slot, CS2ADMIN_FLAG_ROOT))
+	if (g_pCS2Admin->CanUseCommand(slot, commandName, "whitelist", defaultFlag))
 	{
 		return true;
 	}
 
-	if (!g_pCS2Admin->HasFlag(slot, flag))
+	if (g_pEngine)
 	{
-		if (g_pEngine)
-		{
-			g_pEngine->ClientPrintf(CPlayerSlot(slot), "[WHITELIST] You do not have permission to use this command.\n");
-		}
-		return false;
+		g_pEngine->ClientPrintf(CPlayerSlot(slot), "[WHITELIST] You do not have permission to use this command.\n");
 	}
-
-	return true;
+	return false;
 }

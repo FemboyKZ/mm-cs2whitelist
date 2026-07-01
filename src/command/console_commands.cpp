@@ -10,7 +10,7 @@
 CON_COMMAND_F(mm_whitelist_status, "Show whitelist status (enabled, entry count, file name).", FCVAR_GAMEDLL | FCVAR_RELEASE)
 {
 	int slot = context.GetPlayerSlot().Get();
-	if (!HasAdminAccess(slot, CS2ADMIN_FLAG_GENERIC))
+	if (!HasAdminAccess(slot, "whitelist_status", CS2ADMIN_FLAG_GENERIC))
 	{
 		return;
 	}
@@ -22,7 +22,7 @@ CON_COMMAND_F(mm_whitelist_status, "Show whitelist status (enabled, entry count,
 CON_COMMAND_F(mm_whitelist_reload, "Reload the whitelist file from disk.", FCVAR_GAMEDLL | FCVAR_RELEASE)
 {
 	int slot = context.GetPlayerSlot().Get();
-	if (!HasAdminAccess(slot, CS2ADMIN_FLAG_CONVARS))
+	if (!HasAdminAccess(slot, "whitelist_reload", CS2ADMIN_FLAG_CONVARS))
 	{
 		return;
 	}
@@ -53,7 +53,7 @@ CON_COMMAND_F(mm_whitelist_reload, "Reload the whitelist file from disk.", FCVAR
 CON_COMMAND_F(mm_whitelist_list, "List all entries in the currently loaded whitelist.", FCVAR_GAMEDLL | FCVAR_RELEASE)
 {
 	int slot = context.GetPlayerSlot().Get();
-	if (!HasAdminAccess(slot, CS2ADMIN_FLAG_GENERIC))
+	if (!HasAdminAccess(slot, "whitelist_list", CS2ADMIN_FLAG_GENERIC))
 	{
 		return;
 	}
@@ -67,7 +67,7 @@ CON_COMMAND_F(mm_whitelist_add,
 			  FCVAR_GAMEDLL | FCVAR_RELEASE)
 {
 	int slot = context.GetPlayerSlot().Get();
-	if (!HasAdminAccess(slot, CS2ADMIN_FLAG_UNBAN))
+	if (!HasAdminAccess(slot, "whitelist_add", CS2ADMIN_FLAG_UNBAN))
 	{
 		return;
 	}
@@ -96,7 +96,7 @@ CON_COMMAND_F(mm_whitelist_remove,
 			  FCVAR_GAMEDLL | FCVAR_RELEASE)
 {
 	int slot = context.GetPlayerSlot().Get();
-	if (!HasAdminAccess(slot, CS2ADMIN_FLAG_UNBAN))
+	if (!HasAdminAccess(slot, "whitelist_remove", CS2ADMIN_FLAG_UNBAN))
 	{
 		return;
 	}
@@ -125,7 +125,7 @@ CON_COMMAND_F(mm_whitelist_exist,
 			  FCVAR_GAMEDLL | FCVAR_RELEASE)
 {
 	int slot = context.GetPlayerSlot().Get();
-	if (!HasAdminAccess(slot, CS2ADMIN_FLAG_GENERIC))
+	if (!HasAdminAccess(slot, "whitelist_exist", CS2ADMIN_FLAG_GENERIC))
 	{
 		return;
 	}
@@ -153,7 +153,7 @@ CON_COMMAND_F(mm_whitelist_cache_clear,
 			  FCVAR_GAMEDLL | FCVAR_RELEASE)
 {
 	int slot = context.GetPlayerSlot().Get();
-	if (!HasAdminAccess(slot, CS2ADMIN_FLAG_CONVARS))
+	if (!HasAdminAccess(slot, "whitelist_cache_clear", CS2ADMIN_FLAG_CONVARS))
 	{
 		return;
 	}
