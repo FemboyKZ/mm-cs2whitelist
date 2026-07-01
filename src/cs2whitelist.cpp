@@ -4,7 +4,7 @@
 #include "cs2whitelist.h"
 #include "db/wl_config.h"
 #include "db/wl_database.h"
-#include "ics2admin.h"
+#include "vendor/mm-cs2admin/src/public/ics2admin.h"
 #include "player/player_manager.h"
 #include "steamgroup/steamgroup_manager.h"
 #include "utils/utils.h"
