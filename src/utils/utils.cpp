@@ -1,6 +1,6 @@
 #include "utils.h"
 #include "common.h"
-#include "ics2admin.h"
+#include "vendor/interfaces/mm-cs2admin/ics2admin.h"
 
 #include <cctype>
 #include <cstring>

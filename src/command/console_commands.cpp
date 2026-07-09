@@ -3,7 +3,7 @@
 #include "steamgroup/steamgroup_manager.h"
 #include "db/wl_database.h"
 #include "utils/utils.h"
-#include "ics2admin.h"
+#include "vendor/interfaces/mm-cs2admin/ics2admin.h"
 
 #include <tier1/convar.h>
 

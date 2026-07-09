@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <stdexcept>
 
-#include "vendor/mm-cs2admin/src/config/kv_parser.h"
+#include "kv_parser.h"
 
 WLConfig g_WLConfig;
 
