@@ -8,6 +8,7 @@
 #include <stdexcept>
 
 #include "mmu/kv_parser.h"
+#include "mmu/log.h"
 
 WLConfig g_WLConfig;
 
@@ -45,6 +46,14 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 		else if (k == "log")
 		{
 			cfg->logMode = std::atoi(value.c_str());
+		}
+		else if (k == "logtofile")
+		{
+			cfg->logToFile = (value != "0");
+		}
+		else if (k == "logretentiondays")
+		{
+			cfg->logRetentionDays = std::atoi(value.c_str());
 		}
 	}
 	else if (sec == "steamgroups")
@@ -149,5 +158,8 @@ bool WL_LoadConfig(const char *filePath, WLConfig &out)
 	}
 
 	kv::ParseSection(file, root.value, OnKV, &out);
+
+	mmu::log::SetToFile(out.logToFile);
+	mmu::log::SetRetentionDays(out.logRetentionDays);
 	return true;
 }

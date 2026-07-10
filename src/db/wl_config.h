@@ -10,7 +10,9 @@ struct WLConfig
 	bool immunity = true;
 	std::string kickMessage = "You are not whitelisted on this server.";
 	std::string filename = "whitelist.txt";
-	int logMode = 0; // 0=off  1=always  2=once per player per map
+	int logMode = 0;           // 0=off  1=always  2=once per player per map
+	bool logToFile = true;     // mirror log output to addons/cs2whitelist/logs
+	int logRetentionDays = 30; // delete log files older than this, 0 keeps all
 
 	// [Database] section
 	bool dbEnabled = false;
