@@ -10,6 +10,8 @@
 #include "utils/utils.h"
 #include "whitelist/whitelist_manager.h"
 
+#include "mmu/log.h"
+
 #include <eiface.h>
 #include <iserver.h>
 #include <tier1/convar.h>
@@ -33,6 +35,12 @@ ICS2Admin *g_pCS2Admin = nullptr;
 bool CS2WhitelistPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, bool late)
 {
 	PLUGIN_SAVEVARS();
+
+	mmu::log::Setup logSetup;
+	logSetup.channelName = "WHITELIST";
+	logSetup.addonName = "cs2whitelist";
+	logSetup.toFile = true;
+	mmu::log::Init(logSetup);
 
 	GET_V_IFACE_CURRENT(GetEngineFactory, g_pEngine, IVEngineServer, INTERFACEVERSION_VENGINESERVER);
 	GET_V_IFACE_CURRENT(GetEngineFactory, g_pICvar, ICvar, CVAR_INTERFACE_VERSION);
@@ -68,6 +76,8 @@ bool CS2WhitelistPlugin::Unload(char *error, size_t maxlen)
 	g_SteamGroupManager.Shutdown();
 	g_WLDatabase.Shutdown();
 	META_CONPRINTF("[WHITELIST] Plugin unloaded.\n");
+
+	mmu::log::Shutdown();
 	return true;
 }
 
