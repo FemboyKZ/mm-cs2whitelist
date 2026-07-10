@@ -60,7 +60,7 @@ bool CS2WhitelistPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t ma
 
 	g_WLManager.LoadFile();
 
-	META_CONPRINTF("[WHITELIST] Plugin loaded (v%s)%s.\n", PLUGIN_FULL_VERSION, late ? " [late]" : "");
+	MMU_LOG_INFO("Plugin loaded (v%s)%s.\n", PLUGIN_FULL_VERSION, late ? " [late]" : "");
 	return true;
 }
 
@@ -75,7 +75,7 @@ bool CS2WhitelistPlugin::Unload(char *error, size_t maxlen)
 	m_listeners.clear();
 	g_SteamGroupManager.Shutdown();
 	g_WLDatabase.Shutdown();
-	META_CONPRINTF("[WHITELIST] Plugin unloaded.\n");
+	MMU_LOG_INFO("Plugin unloaded.\n");
 
 	mmu::log::Shutdown();
 	return true;
@@ -89,7 +89,7 @@ void CS2WhitelistPlugin::OnPluginLoad(PluginId id)
 		g_pCS2Admin = static_cast<ICS2Admin *>(g_SMAPI->MetaFactory(CS2ADMIN_INTERFACE, nullptr, nullptr));
 		if (g_pCS2Admin)
 		{
-			META_CONPRINTF("[WHITELIST] mm-cs2admin interface acquired (late load).\n");
+			MMU_LOG_INFO("mm-cs2admin interface acquired (late load).\n");
 		}
 	}
 }
@@ -107,12 +107,12 @@ void CS2WhitelistPlugin::AllPluginsLoaded()
 
 	if (g_pCS2Admin)
 	{
-		META_CONPRINTF("[WHITELIST] mm-cs2admin interface acquired! "
+		MMU_LOG_INFO("mm-cs2admin interface acquired! "
 					   "Admin immunity and in-game commands enabled.\n");
 	}
 	else
 	{
-		META_CONPRINTF("[WHITELIST] mm-cs2admin not loaded. "
+		MMU_LOG_INFO("mm-cs2admin not loaded. "
 					   "Admin commands restricted to server console.\n");
 	}
 
@@ -126,11 +126,11 @@ void CS2WhitelistPlugin::AllPluginsLoaded()
 		cv_kickmessage.Set(CUtlString(g_WLConfig.kickMessage.c_str()));
 		cv_filename.Set(CUtlString(g_WLConfig.filename.c_str()));
 		cv_log.Set(g_WLConfig.logMode);
-		META_CONPRINTF("[WHITELIST] Loaded core.cfg.\n");
+		MMU_LOG_INFO("Loaded core.cfg.\n");
 	}
 	else
 	{
-		META_CONPRINTF("[WHITELIST] core.cfg not found, using ConVar defaults.\n");
+		MMU_LOG_WARN("core.cfg not found, using ConVar defaults.\n");
 	}
 
 	{
@@ -152,7 +152,7 @@ void CS2WhitelistPlugin::AllPluginsLoaded()
 				if (success)
 				{
 					g_WLDatabase.LoadEntries(g_WLManager.GetSet(),
-											 [](int count) { META_CONPRINTF("[WHITELIST] Loaded %d entries from database.\n", count); });
+											 [](int count) { MMU_LOG_INFO("Loaded %d entries from database.\n", count); });
 				}
 			});
 	}
@@ -168,7 +168,7 @@ void CS2WhitelistPlugin::OnLevelInit(char const *pMapName, char const *pMapEntit
 
 	if (g_WLDatabase.IsConnected())
 	{
-		g_WLDatabase.LoadEntries(g_WLManager.GetSet(), [](int count) { META_CONPRINTF("[WHITELIST] Merged %d DB entries on map load.\n", count); });
+		g_WLDatabase.LoadEntries(g_WLManager.GetSet(), [](int count) { MMU_LOG_INFO("Merged %d DB entries on map load.\n", count); });
 	}
 }
 
@@ -215,7 +215,7 @@ void CS2WhitelistPlugin::Hook_ClientPutInServer(CPlayerSlot slot, char const *ps
 
 	if (cv_immunity.Get() && g_pCS2Admin && g_pCS2Admin->IsAdmin(idx))
 	{
-		META_CONPRINTF("[WHITELIST] Slot %d (%s) has admin immunity.\n", idx, pszName ? pszName : "?");
+		MMU_LOG_INFO("Slot %d (%s) has admin immunity.\n", idx, pszName ? pszName : "?");
 		g_WLManager.AddToWhitelistCache(p->xuid);
 		return;
 	}

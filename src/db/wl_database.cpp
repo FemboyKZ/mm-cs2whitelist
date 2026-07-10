@@ -1,4 +1,5 @@
 #include "wl_database.h"
+#include "mmu/log.h"
 #include "wl_config.h"
 #include "common.h"
 
@@ -17,7 +18,7 @@ bool WLDatabase::Init(const WLConfig &cfg)
 {
 	if (!cfg.dbEnabled)
 	{
-		META_CONPRINTF("[WHITELIST] Database disabled (dbEnabled=0 in core.cfg).\n");
+		MMU_LOG_WARN("Database disabled (dbEnabled=0 in core.cfg).\n");
 		return false;
 	}
 
@@ -25,7 +26,7 @@ bool WLDatabase::Init(const WLConfig &cfg)
 
 	if (!m_pSQLInterface)
 	{
-		META_CONPRINTF("[WHITELIST] sql_mm not loaded; database support unavailable.\n");
+		MMU_LOG_WARN("sql_mm not loaded; database support unavailable.\n");
 		return false;
 	}
 
@@ -37,7 +38,7 @@ bool WLDatabase::Init(const WLConfig &cfg)
 		m_pMySQLClient = m_pSQLInterface->GetMySQLClient();
 		if (!m_pMySQLClient)
 		{
-			META_CONPRINTF("[WHITELIST] sql_mm MySQL client unavailable.\n");
+			MMU_LOG_WARN("sql_mm MySQL client unavailable.\n");
 			return false;
 		}
 		m_dbPath = cfg.dbHost;
@@ -47,7 +48,7 @@ bool WLDatabase::Init(const WLConfig &cfg)
 		m_pSQLiteClient = m_pSQLInterface->GetSQLiteClient();
 		if (!m_pSQLiteClient)
 		{
-			META_CONPRINTF("[WHITELIST] sql_mm SQLite client unavailable.\n");
+			MMU_LOG_WARN("sql_mm SQLite client unavailable.\n");
 			return false;
 		}
 		m_dbPath = cfg.dbPath;
@@ -55,7 +56,7 @@ bool WLDatabase::Init(const WLConfig &cfg)
 
 	m_connectCfg = cfg;
 	m_bEnabled = true;
-	META_CONPRINTF("[WHITELIST] Database initialized (type=%s).\n", m_bMySQL ? "mysql" : "sqlite");
+	MMU_LOG_INFO("Database initialized (type=%s).\n", m_bMySQL ? "mysql" : "sqlite");
 	return true;
 }
 
@@ -90,7 +91,7 @@ void WLDatabase::Connect(std::function<void(bool)> callback)
 
 	if (!m_pConnection)
 	{
-		META_CONPRINTF("[WHITELIST] Failed to create database connection object.\n");
+		MMU_LOG_WARN("Failed to create database connection object.\n");
 		if (callback)
 		{
 			callback(false);
@@ -104,7 +105,7 @@ void WLDatabase::Connect(std::function<void(bool)> callback)
 			m_bConnected = success;
 			if (success)
 			{
-				META_CONPRINTF("[WHITELIST] Database connected (%s).\n", m_bMySQL ? "MySQL" : "SQLite");
+				MMU_LOG_INFO("Database connected (%s).\n", m_bMySQL ? "MySQL" : "SQLite");
 
 				if (!m_bMySQL)
 				{
@@ -120,7 +121,7 @@ void WLDatabase::Connect(std::function<void(bool)> callback)
 			}
 			else
 			{
-				META_CONPRINTF("[WHITELIST] Database connection failed.\n");
+				MMU_LOG_WARN("Database connection failed.\n");
 			}
 			if (callback)
 			{

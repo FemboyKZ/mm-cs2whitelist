@@ -1,4 +1,5 @@
 #include "whitelist_manager.h"
+#include "mmu/log.h"
 #include "player/player_manager.h"
 #include "utils/utils.h"
 #include "db/wl_database.h"
@@ -62,7 +63,7 @@ bool WLManager::LoadFile()
 	std::ifstream file(path);
 	if (!file.is_open())
 	{
-		META_CONPRINTF("[WHITELIST] Could not open whitelist file: %s\n"
+		MMU_LOG_WARN("Could not open whitelist file: %s\n"
 					   "[WHITELIST] Create the file with one SteamID or IP per line.\n",
 					   path.c_str());
 		return false;
@@ -166,11 +167,11 @@ bool WLManager::LoadFile()
 
 	if (groupCount > 0)
 	{
-		META_CONPRINTF("[WHITELIST] Loaded %d entries + %d GROUP entries from %s.\n", count, groupCount, path.c_str());
+		MMU_LOG_INFO("Loaded %d entries + %d GROUP entries from %s.\n", count, groupCount, path.c_str());
 	}
 	else
 	{
-		META_CONPRINTF("[WHITELIST] Loaded %d entries from %s.\n", count, path.c_str());
+		MMU_LOG_INFO("Loaded %d entries from %s.\n", count, path.c_str());
 	}
 	return true;
 }
@@ -181,7 +182,7 @@ bool WLManager::SaveFile()
 	std::ofstream file(path);
 	if (!file.is_open())
 	{
-		META_CONPRINTF("[WHITELIST] Could not write whitelist file: %s\n", path.c_str());
+		MMU_LOG_WARN("Could not write whitelist file: %s\n", path.c_str());
 		return false;
 	}
 
@@ -356,7 +357,7 @@ void WLLogKick(const char *name, uint64_t xuid, const char *ip, bool alreadyCach
 	const char *safeName = name ? name : "?";
 	const char *safeIp = ip ? ip : "?";
 
-	META_CONPRINTF("[WHITELIST] [%s] Kick: \"%s\" xuid=%llu authid=%s ip=%s\n", timebuf, safeName, static_cast<unsigned long long>(xuid),
+	MMU_LOG_INFO("[%s] Kick: \"%s\" xuid=%llu authid=%s ip=%s\n", timebuf, safeName, static_cast<unsigned long long>(xuid),
 				   authid.c_str(), safeIp);
 
 	char logDir[512];
