@@ -61,7 +61,7 @@ bool CS2WhitelistPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t ma
 	PLUGIN_SAVEVARS();
 
 	mmu::log::Setup logSetup;
-	logSetup.channelName = "WHITELIST";
+	logSetup.channelName = "CS2Whitelist";
 	logSetup.addonName = "cs2whitelist";
 	logSetup.toFile = true;
 	mmu::log::Init(logSetup);
