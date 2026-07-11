@@ -1,5 +1,6 @@
 #include "utils.h"
 #include "common.h"
+#include "lang/translations.h"
 #include "vendor/interfaces/mm-cs2admin/ics2admin.h"
 
 #include <cctype>
@@ -109,6 +110,19 @@ void ReplyToSlot(int slot, const char *fmt, ...)
 	}
 }
 
+void ReplyToSlotT(int slot, const char *phrase, ...)
+{
+	std::string fmt = WL_Translate(slot, phrase);
+
+	char buf[512];
+	va_list args;
+	va_start(args, phrase);
+	vsnprintf(buf, sizeof(buf), fmt.c_str(), args);
+	va_end(args);
+
+	ReplyToSlot(slot, "[WHITELIST] %s\n", buf);
+}
+
 bool HasAdminAccess(int slot, const char *commandName, uint32_t defaultFlag)
 {
 	if (slot < 0)
@@ -118,11 +132,7 @@ bool HasAdminAccess(int slot, const char *commandName, uint32_t defaultFlag)
 
 	if (!g_pCS2Admin)
 	{
-		if (g_pEngine)
-		{
-			g_pEngine->ClientPrintf(CPlayerSlot(slot), "[WHITELIST] mm-cs2admin is not loaded; "
-													   "this command can only be used from the server console.\n");
-		}
+		ReplyToSlotT(slot, "mm-cs2admin is not loaded; this command can only be used from the server console.");
 		return false;
 	}
 
@@ -131,9 +141,6 @@ bool HasAdminAccess(int slot, const char *commandName, uint32_t defaultFlag)
 		return true;
 	}
 
-	if (g_pEngine)
-	{
-		g_pEngine->ClientPrintf(CPlayerSlot(slot), "[WHITELIST] You do not have permission to use this command.\n");
-	}
+	ReplyToSlotT(slot, "You do not have permission to use this command.");
 	return false;
 }

@@ -44,7 +44,6 @@ Supported entry types:
 | --- | --- | --- |
 | `mm_whitelist_enable` | `1` | Enable (1) or disable (0) the whitelist. |
 | `mm_whitelist_immunity` | `1` | Skip the check for players with any cs2admin flag. |
-| `mm_whitelist_kickmessage` | `You are not whitelisted on this server.` | Console message sent to kicked players. |
 | `mm_whitelist_filename` | `whitelist.txt` | File name inside `cfg/cs2whitelist/`. |
 | `mm_whitelist_log` | `0` | Log failed join attempts. `0` = off, `1` = always, `2` = once per player per map. Logs to console and `addons/cs2whitelist/logs/YYYY-MM-DD.log`. |
 

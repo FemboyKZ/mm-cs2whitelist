@@ -5,6 +5,7 @@
 #include "db/wl_config.h"
 #include "db/wl_database.h"
 #include "vendor/interfaces/mm-cs2admin/ics2admin.h"
+#include "lang/translations.h"
 #include "player/player_manager.h"
 #include "steamgroup/steamgroup_manager.h"
 #include "utils/utils.h"
@@ -16,6 +17,8 @@
 #include <eiface.h>
 #include <iserver.h>
 #include <tier1/convar.h>
+
+#include "iclientcvarvalue.h"
 
 SH_DECL_HOOK6_void(IServerGameClients, OnClientConnected, SH_NOATTRIB, 0, CPlayerSlot, const char *, uint64, const char *, const char *, bool);
 SH_DECL_HOOK4_void(IServerGameClients, ClientPutInServer, SH_NOATTRIB, 0, CPlayerSlot, char const *, int, uint64);
@@ -32,6 +35,26 @@ IServerGameClients *g_pGameClients = nullptr;
 IServerGameDLL *g_pServerGameDLL = nullptr;
 ICvar *g_pICvar = nullptr;
 ICS2Admin *g_pCS2Admin = nullptr;
+
+// Optional. Provides each client's cl_language for phrase translation.
+// May load after us, so it is re-acquired whenever translations reload.
+static IClientCvarValue *g_pClientCvarValue = nullptr;
+
+std::string WL_SlotLanguage(int slot)
+{
+	const char *raw = g_pClientCvarValue ? g_pClientCvarValue->GetClientLanguage(CPlayerSlot(slot)) : nullptr;
+	return g_WLTranslations.MapClientLanguage(raw);
+}
+
+// Re-acquire ClientCvarValue and reload phrase tables.
+void WL_LoadTranslations()
+{
+	g_pClientCvarValue = static_cast<IClientCvarValue *>(g_SMAPI->MetaFactory(CLIENTCVARVALUE_INTERFACE, nullptr, nullptr));
+	// Phrases render in consoles and on the disconnect screen, never in chat.
+	g_WLTranslations.SetResolveColorTags(false);
+	g_WLTranslations.Load(g_SMAPI->GetBaseDir(), "cs2whitelist");
+	g_WLTranslations.SetDefaultLanguage(g_WLConfig.defaultLanguage);
+}
 
 bool CS2WhitelistPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, bool late)
 {
@@ -132,7 +155,6 @@ void CS2WhitelistPlugin::AllPluginsLoaded()
 	{
 		cv_enable.Set(g_WLConfig.enable);
 		cv_immunity.Set(g_WLConfig.immunity);
-		cv_kickmessage.Set(CUtlString(g_WLConfig.kickMessage.c_str()));
 		cv_filename.Set(CUtlString(g_WLConfig.filename.c_str()));
 		cv_log.Set(g_WLConfig.logMode);
 		MMU_LOG_INFO("Loaded core.cfg.\n");
@@ -141,6 +163,8 @@ void CS2WhitelistPlugin::AllPluginsLoaded()
 	{
 		MMU_LOG_WARN("core.cfg not found, using ConVar defaults.\n");
 	}
+
+	WL_LoadTranslations();
 
 	{
 		SteamGroupManager::Config sgCfg;
@@ -230,13 +254,13 @@ void CS2WhitelistPlugin::Hook_ClientPutInServer(CPlayerSlot slot, char const *ps
 
 	if (g_WLManager.IsBlacklisted(p->xuid))
 	{
-		const char *msg = cv_kickmessage.Get().Get();
+		std::string msg = WL_Translate(idx, "You are not whitelisted on this server.");
 		char kickmsg[512];
-		snprintf(kickmsg, sizeof(kickmsg), "[WHITELIST] %s\n", msg);
+		snprintf(kickmsg, sizeof(kickmsg), "[WHITELIST] %s\n", msg.c_str());
 		if (g_pEngine)
 		{
 			g_pEngine->ClientPrintf(slot, kickmsg);
-			g_pEngine->DisconnectClient(slot, NETWORK_DISCONNECT_KICKED, msg);
+			g_pEngine->DisconnectClient(slot, NETWORK_DISCONNECT_KICKED, msg.c_str());
 		}
 		return;
 	}
@@ -272,7 +296,7 @@ void CS2WhitelistPlugin::Hook_ClientPutInServer(CPlayerSlot slot, char const *ps
 		}
 	}
 
-	const char *msg = cv_kickmessage.Get().Get();
+	std::string msg = WL_Translate(idx, "You are not whitelisted on this server.");
 
 	if (g_pEngine)
 	{
@@ -280,10 +304,10 @@ void CS2WhitelistPlugin::Hook_ClientPutInServer(CPlayerSlot slot, char const *ps
 		g_WLManager.AddToBlacklistCache(p->xuid);
 
 		char kickmsg[512];
-		snprintf(kickmsg, sizeof(kickmsg), "[WHITELIST] %s\n", msg);
+		snprintf(kickmsg, sizeof(kickmsg), "[WHITELIST] %s\n", msg.c_str());
 		g_pEngine->ClientPrintf(slot, kickmsg);
 
-		g_pEngine->DisconnectClient(slot, NETWORK_DISCONNECT_KICKED, msg);
+		g_pEngine->DisconnectClient(slot, NETWORK_DISCONNECT_KICKED, msg.c_str());
 	}
 }
 

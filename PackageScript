@@ -122,6 +122,9 @@ for task in MMSPlugin.binaries:
     # Copy example whitelist config
     packages[sdk_name].addFile("configs/whitelist.txt", "configs/whitelist.txt.example")
 
+    # Deploy translation files
+    packages[sdk_name].addFolder("translations", "translations")
+
     if task.debug:
         pdb_list.append(task.debug)
 

@@ -1,0 +1,83 @@
+// Whitelist console and kick phrases. Section name is the phrase key used in code.
+// To add a language, copy the "en" line and change the key, keeping the SAME format specifiers in the SAME order.
+
+"Phrases"
+{
+	// Kick message shown in the player's console and on the disconnect screen
+	"You are not whitelisted on this server."
+	{
+		"en"	"You are not whitelisted on this server."
+	}
+
+	// Permissions
+	"You do not have permission to use this command."
+	{
+		"en"	"You do not have permission to use this command."
+	}
+	"mm-cs2admin is not loaded; this command can only be used from the server console."
+	{
+		"en"	"mm-cs2admin is not loaded; this command can only be used from the server console."
+	}
+
+	// Commands
+	"enabled=%s | entries=%d | wl_cache=%d | bl_cache=%d | file=%s"
+	{
+		"en"	"enabled=%s | entries=%d | wl_cache=%d | bl_cache=%d | file=%s"
+	}
+	"Reloaded %d entries from disk + %d from database."
+	{
+		"en"	"Reloaded %d entries from disk + %d from database."
+	}
+	"Reloaded %d entries from disk."
+	{
+		"en"	"Reloaded %d entries from disk."
+	}
+	"Failed to reload whitelist file (check server log)."
+	{
+		"en"	"Failed to reload whitelist file (check server log)."
+	}
+	"Usage: mm_whitelist_add <steamid|ip>"
+	{
+		"en"	"Usage: mm_whitelist_add <steamid|ip>"
+	}
+	"Added '%s'. Saving file..."
+	{
+		"en"	"Added '%s'. Saving file..."
+	}
+	"'%s' is already in the whitelist (or is invalid)."
+	{
+		"en"	"'%s' is already in the whitelist (or is invalid)."
+	}
+	"Usage: mm_whitelist_remove <steamid|ip>"
+	{
+		"en"	"Usage: mm_whitelist_remove <steamid|ip>"
+	}
+	"Removed '%s'. Saving file..."
+	{
+		"en"	"Removed '%s'. Saving file..."
+	}
+	"'%s' was not found in the whitelist."
+	{
+		"en"	"'%s' was not found in the whitelist."
+	}
+	"Usage: mm_whitelist_exist <steamid|ip>"
+	{
+		"en"	"Usage: mm_whitelist_exist <steamid|ip>"
+	}
+	"'%s' IS in the whitelist."
+	{
+		"en"	"'%s' IS in the whitelist."
+	}
+	"'%s' is NOT in the whitelist."
+	{
+		"en"	"'%s' is NOT in the whitelist."
+	}
+	"Cache cleared."
+	{
+		"en"	"Cache cleared."
+	}
+	"%d entries:"
+	{
+		"en"	"%d entries:"
+	}
+}

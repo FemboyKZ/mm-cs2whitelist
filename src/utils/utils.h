@@ -17,6 +17,10 @@ std::string StripPort(const char *addr);
 // Printf-style reply to a player slot or the server console (slot < 0).
 void ReplyToSlot(int slot, const char *fmt, ...);
 
+// Translated reply. `phrase` is resolved to the slot's language, then formatted.
+// Output is prefixed with [WHITELIST] and newline-terminated.
+void ReplyToSlotT(int slot, const char *phrase, ...);
+
 // Check whether slot may run commandName via cs2admin's override chain.
 // defaultFlag is the required flag when no override applies. Group "whitelist".
 // Server console (slot < 0) always passes.

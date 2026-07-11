@@ -3,6 +3,7 @@
 #include "mmu/log.h"
 
 #include "common.h"
+#include "lang/translations.h"
 #include "whitelist/whitelist_manager.h"
 
 #include <eiface.h>
@@ -463,12 +464,12 @@ void SteamGroupManager::KickPlayer(int slot)
 	{
 		return;
 	}
-	const char *msg = cv_kickmessage.Get().Get();
+	std::string msg = WL_Translate(slot, "You are not whitelisted on this server.");
 	CPlayerSlot playerSlot(slot);
 	char kickmsg[512];
-	snprintf(kickmsg, sizeof(kickmsg), "[WHITELIST] %s\n", msg);
+	snprintf(kickmsg, sizeof(kickmsg), "[WHITELIST] %s\n", msg.c_str());
 	g_pEngine->ClientPrintf(playerSlot, kickmsg);
-	g_pEngine->DisconnectClient(playerSlot, NETWORK_DISCONNECT_KICKED, msg);
+	g_pEngine->DisconnectClient(playerSlot, NETWORK_DISCONNECT_KICKED, msg.c_str());
 }
 
 void SteamGroupManager::OnGameFrame()

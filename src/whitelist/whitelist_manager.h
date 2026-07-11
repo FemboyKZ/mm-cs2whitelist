@@ -11,7 +11,6 @@
 // ConVar declarations
 extern CConVar<bool> cv_enable;
 extern CConVar<bool> cv_immunity;
-extern CConVar<CUtlString> cv_kickmessage;
 extern CConVar<CUtlString> cv_filename;
 extern CConVar<int> cv_log;
 

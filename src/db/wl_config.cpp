@@ -35,10 +35,6 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 		{
 			cfg->immunity = (value != "0");
 		}
-		else if (k == "kickmessage")
-		{
-			cfg->kickMessage = value;
-		}
 		else if (k == "filename")
 		{
 			cfg->filename = value;
@@ -54,6 +50,10 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 		else if (k == "logretentiondays")
 		{
 			cfg->logRetentionDays = std::atoi(value.c_str());
+		}
+		else if (k == "defaultlanguage")
+		{
+			cfg->defaultLanguage = value;
 		}
 	}
 	else if (sec == "steamgroups")

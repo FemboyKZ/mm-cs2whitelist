@@ -19,10 +19,6 @@ CConVar<bool> cv_immunity("mm_whitelist_immunity", FCVAR_RELEASE | FCVAR_GAMEDLL
 						  "(requires mm-cs2admin).",
 						  true);
 
-CConVar<CUtlString> cv_kickmessage("mm_whitelist_kickmessage", FCVAR_RELEASE | FCVAR_GAMEDLL,
-								   "Message sent to the player's console when they are kicked by the whitelist.",
-								   "You are not whitelisted on this server.");
-
 CConVar<CUtlString> cv_filename("mm_whitelist_filename", FCVAR_RELEASE | FCVAR_GAMEDLL,
 								"Whitelist file name, relative to <game>/cfg/cs2whitelist/. "
 								"Path separators are stripped to prevent directory traversal.",
@@ -64,8 +60,8 @@ bool WLManager::LoadFile()
 	if (!file.is_open())
 	{
 		MMU_LOG_WARN("Could not open whitelist file: %s\n"
-					   "[WHITELIST] Create the file with one SteamID or IP per line.\n",
-					   path.c_str());
+					 "[WHITELIST] Create the file with one SteamID or IP per line.\n",
+					 path.c_str());
 		return false;
 	}
 
@@ -283,7 +279,7 @@ bool WLManager::IsEntryWhitelisted(const char *entry) const
 
 void WLManager::PrintList(int slot) const
 {
-	ReplyToSlot(slot, "[WHITELIST] %d entries:\n", static_cast<int>(m_whitelist.size()));
+	ReplyToSlotT(slot, "%d entries:", static_cast<int>(m_whitelist.size()));
 	for (const auto &e : m_whitelist)
 	{
 		ReplyToSlot(slot, "  %s\n", e.c_str());
@@ -357,8 +353,7 @@ void WLLogKick(const char *name, uint64_t xuid, const char *ip, bool alreadyCach
 	const char *safeName = name ? name : "?";
 	const char *safeIp = ip ? ip : "?";
 
-	MMU_LOG_INFO("[%s] Kick: \"%s\" xuid=%llu authid=%s ip=%s\n", timebuf, safeName, static_cast<unsigned long long>(xuid),
-				   authid.c_str(), safeIp);
+	MMU_LOG_INFO("[%s] Kick: \"%s\" xuid=%llu authid=%s ip=%s\n", timebuf, safeName, static_cast<unsigned long long>(xuid), authid.c_str(), safeIp);
 
 	char logDir[512];
 	snprintf(logDir, sizeof(logDir), "%s/addons/cs2whitelist/logs", g_SMAPI->GetBaseDir());

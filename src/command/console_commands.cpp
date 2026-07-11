@@ -15,8 +15,8 @@ CON_COMMAND_F(mm_whitelist_status, "Show whitelist status (enabled, entry count,
 		return;
 	}
 
-	ReplyToSlot(slot, "[WHITELIST] enabled=%s | entries=%d | wl_cache=%d | bl_cache=%d | file=%s\n", cv_enable.Get() ? "yes" : "no",
-				g_WLManager.GetEntryCount(), g_WLManager.GetWhitelistCacheCount(), g_WLManager.GetBlacklistCacheCount(), cv_filename.Get().Get());
+	ReplyToSlotT(slot, "enabled=%s | entries=%d | wl_cache=%d | bl_cache=%d | file=%s", cv_enable.Get() ? "yes" : "no", g_WLManager.GetEntryCount(),
+				 g_WLManager.GetWhitelistCacheCount(), g_WLManager.GetBlacklistCacheCount(), cv_filename.Get().Get());
 }
 
 CON_COMMAND_F(mm_whitelist_reload, "Reload the whitelist file from disk.", FCVAR_GAMEDLL | FCVAR_RELEASE)
@@ -32,21 +32,18 @@ CON_COMMAND_F(mm_whitelist_reload, "Reload the whitelist file from disk.", FCVAR
 		g_SteamGroupManager.FetchGroups();
 		if (g_WLDatabase.IsConnected())
 		{
-			g_WLDatabase.LoadEntries(g_WLManager.GetSet(),
-									 [slot](int count)
-									 {
-										 ReplyToSlot(slot, "[WHITELIST] Reloaded %d entries from disk + %d from database.\n",
-													 g_WLManager.GetEntryCount() - count, count);
-									 });
+			g_WLDatabase.LoadEntries(
+				g_WLManager.GetSet(), [slot](int count)
+				{ ReplyToSlotT(slot, "Reloaded %d entries from disk + %d from database.", g_WLManager.GetEntryCount() - count, count); });
 		}
 		else
 		{
-			ReplyToSlot(slot, "[WHITELIST] Reloaded %d entries from disk.\n", g_WLManager.GetEntryCount());
+			ReplyToSlotT(slot, "Reloaded %d entries from disk.", g_WLManager.GetEntryCount());
 		}
 	}
 	else
 	{
-		ReplyToSlot(slot, "[WHITELIST] Failed to reload whitelist file (check server log).\n");
+		ReplyToSlotT(slot, "Failed to reload whitelist file (check server log).");
 	}
 }
 
@@ -74,19 +71,19 @@ CON_COMMAND_F(mm_whitelist_add,
 
 	if (args.ArgC() < 2)
 	{
-		ReplyToSlot(slot, "[WHITELIST] Usage: mm_whitelist_add <steamid|ip>\n");
+		ReplyToSlotT(slot, "Usage: mm_whitelist_add <steamid|ip>");
 		return;
 	}
 
 	const char *entry = args.Arg(1);
 	if (g_WLManager.AddEntry(entry))
 	{
-		ReplyToSlot(slot, "[WHITELIST] Added '%s'. Saving file...\n", entry);
+		ReplyToSlotT(slot, "Added '%s'. Saving file...", entry);
 		g_WLManager.SaveFile();
 	}
 	else
 	{
-		ReplyToSlot(slot, "[WHITELIST] '%s' is already in the whitelist (or is invalid).\n", entry);
+		ReplyToSlotT(slot, "'%s' is already in the whitelist (or is invalid).", entry);
 	}
 }
 
@@ -103,19 +100,19 @@ CON_COMMAND_F(mm_whitelist_remove,
 
 	if (args.ArgC() < 2)
 	{
-		ReplyToSlot(slot, "[WHITELIST] Usage: mm_whitelist_remove <steamid|ip>\n");
+		ReplyToSlotT(slot, "Usage: mm_whitelist_remove <steamid|ip>");
 		return;
 	}
 
 	const char *entry = args.Arg(1);
 	if (g_WLManager.RemoveEntry(entry))
 	{
-		ReplyToSlot(slot, "[WHITELIST] Removed '%s'. Saving file...\n", entry);
+		ReplyToSlotT(slot, "Removed '%s'. Saving file...", entry);
 		g_WLManager.SaveFile();
 	}
 	else
 	{
-		ReplyToSlot(slot, "[WHITELIST] '%s' was not found in the whitelist.\n", entry);
+		ReplyToSlotT(slot, "'%s' was not found in the whitelist.", entry);
 	}
 }
 
@@ -132,18 +129,18 @@ CON_COMMAND_F(mm_whitelist_exist,
 
 	if (args.ArgC() < 2)
 	{
-		ReplyToSlot(slot, "[WHITELIST] Usage: mm_whitelist_exist <steamid|ip>\n");
+		ReplyToSlotT(slot, "Usage: mm_whitelist_exist <steamid|ip>");
 		return;
 	}
 
 	const char *entry = args.Arg(1);
 	if (g_WLManager.IsEntryWhitelisted(entry))
 	{
-		ReplyToSlot(slot, "[WHITELIST] '%s' IS in the whitelist.\n", entry);
+		ReplyToSlotT(slot, "'%s' IS in the whitelist.", entry);
 	}
 	else
 	{
-		ReplyToSlot(slot, "[WHITELIST] '%s' is NOT in the whitelist.\n", entry);
+		ReplyToSlotT(slot, "'%s' is NOT in the whitelist.", entry);
 	}
 }
 
@@ -160,5 +157,5 @@ CON_COMMAND_F(mm_whitelist_cache_clear,
 
 	g_WLManager.ClearBlacklistCache();
 	g_WLManager.ClearWhitelistCache();
-	ReplyToSlot(slot, "[WHITELIST] Cache cleared.\n");
+	ReplyToSlotT(slot, "Cache cleared.");
 }
