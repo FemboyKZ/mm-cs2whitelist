@@ -3,6 +3,8 @@
 #include "lang/translations.h"
 #include "vendor/interfaces/mm-cs2admin/ics2admin.h"
 
+#include "mmu/print.h"
+
 #include <cctype>
 #include <cstring>
 #include <algorithm>
@@ -76,38 +78,29 @@ std::string NormalizeEntry(const char *input)
 	return s;
 }
 
-std::string StripPort(const char *addr)
+// Console-only printer. slot < 0 prints to the server console.
+// Only ClientConsoleV is used, which formats and prints without touching the setup fields.
+static mmu::ChatPrinter &Printer()
 {
-	if (!addr || !addr[0])
+	static mmu::ChatPrinter printer = []
 	{
-		return {};
-	}
-
-	std::string s(addr);
-	auto colon = s.rfind(':');
-	if (colon != std::string::npos)
-	{
-		return s.substr(0, colon);
-	}
-	return s;
+		mmu::ChatPrinter p;
+		mmu::ChatPrinter::Setup s;
+		s.translations = &g_WLTranslations;
+		s.slotLanguage = &WL_SlotLanguage;
+		s.conTag = "WHITELIST";
+		p.Configure(s);
+		return p;
+	}();
+	return printer;
 }
 
 void ReplyToSlot(int slot, const char *fmt, ...)
 {
-	char buf[512];
 	va_list args;
 	va_start(args, fmt);
-	vsnprintf(buf, sizeof(buf), fmt, args);
+	Printer().ClientConsoleV(slot, fmt, args);
 	va_end(args);
-
-	if (slot < 0)
-	{
-		META_CONPRINTF("%s", buf);
-	}
-	else if (g_pEngine)
-	{
-		g_pEngine->ClientPrintf(CPlayerSlot(slot), buf);
-	}
 }
 
 void ReplyToSlotT(int slot, const char *phrase, ...)

@@ -1,5 +1,5 @@
 #include "player_manager.h"
-#include "utils/utils.h"
+#include "mmu/str_utils.h"
 
 WLPlayerManager g_WLPlayerManager;
 
@@ -12,7 +12,7 @@ void WLPlayerManager::OnClientConnected(int slot, uint64_t xuid, const char *add
 
 	m_players[slot].xuid = xuid;
 	m_players[slot].fakePlayer = fakePlayer;
-	m_players[slot].ip = StripPort(address ? address : "");
+	m_players[slot].ip = str::StripPort(address ? address : "");
 }
 
 void WLPlayerManager::OnClientDisconnect(int slot)

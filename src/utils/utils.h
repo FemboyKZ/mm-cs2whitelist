@@ -11,9 +11,6 @@
 // Returns an empty string if the input is blank or a comment.
 std::string NormalizeEntry(const char *input);
 
-// Strip the :port suffix from an address string ("1.2.3.4:27015" -> "1.2.3.4").
-std::string StripPort(const char *addr);
-
 // Printf-style reply to a player slot or the server console (slot < 0).
 void ReplyToSlot(int slot, const char *fmt, ...);
 
