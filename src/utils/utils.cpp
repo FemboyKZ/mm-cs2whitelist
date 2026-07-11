@@ -8,16 +8,6 @@
 #include <cstdarg>
 #include <cstdio>
 
-std::string SteamID64ToAuthId(uint64_t id64)
-{
-	uint32_t accountId = static_cast<uint32_t>(id64 & 0xFFFFFFFF);
-	uint32_t y = accountId & 1u;
-	uint32_t z = accountId >> 1u;
-	char buf[32];
-	snprintf(buf, sizeof(buf), "STEAM_0:%u:%u", y, z);
-	return buf;
-}
-
 std::string NormalizeEntry(const char *input)
 {
 	if (!input || !input[0])

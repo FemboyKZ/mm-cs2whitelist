@@ -1,12 +1,11 @@
 #ifndef _INCLUDE_WL_UTILS_H_
 #define _INCLUDE_WL_UTILS_H_
 
+#include "mmu/steam_utils.h"
+
 #include <string>
 #include <cstdint>
 #include <cstdarg>
-
-// SteamID64 -> "STEAM_0:X:Y"
-std::string SteamID64ToAuthId(uint64_t id64);
 
 // Normalise a raw whitelist line or command argument to a canonical form.
 // Returns an empty string if the input is blank or a comment.
