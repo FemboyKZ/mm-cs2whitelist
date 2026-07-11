@@ -21,7 +21,7 @@ public:
 	const PlayerInfo *GetPlayer(int slot) const;
 
 private:
-	PlayerInfo m_players[WL_MAXPLAYERS + 1];
+	PlayerInfo m_players[MAXPLAYERS + 1];
 };
 
 extern WLPlayerManager g_WLPlayerManager;

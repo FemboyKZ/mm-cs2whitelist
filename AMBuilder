@@ -30,6 +30,7 @@ for sdk_target in MMSPlugin.sdk_targets:
         "vendor/mm-utils/mmu/chat_colors.cpp",
         "vendor/mm-utils/mmu/http_client.cpp",
         "vendor/mm-utils/mmu/log.cpp",
+        "vendor/mm-utils/mmu/sql.cpp",
         "vendor/mm-utils/mmu/translations.cpp",
     ]
 

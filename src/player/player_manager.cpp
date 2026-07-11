@@ -5,7 +5,7 @@ WLPlayerManager g_WLPlayerManager;
 
 void WLPlayerManager::OnClientConnected(int slot, uint64_t xuid, const char *address, bool fakePlayer)
 {
-	if (slot < 0 || slot > WL_MAXPLAYERS)
+	if (slot < 0 || slot > MAXPLAYERS)
 	{
 		return;
 	}
@@ -17,7 +17,7 @@ void WLPlayerManager::OnClientConnected(int slot, uint64_t xuid, const char *add
 
 void WLPlayerManager::OnClientDisconnect(int slot)
 {
-	if (slot < 0 || slot > WL_MAXPLAYERS)
+	if (slot < 0 || slot > MAXPLAYERS)
 	{
 		return;
 	}
@@ -27,7 +27,7 @@ void WLPlayerManager::OnClientDisconnect(int slot)
 
 const PlayerInfo *WLPlayerManager::GetPlayer(int slot) const
 {
-	if (slot < 0 || slot > WL_MAXPLAYERS)
+	if (slot < 0 || slot > MAXPLAYERS)
 	{
 		return nullptr;
 	}

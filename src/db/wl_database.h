@@ -1,17 +1,11 @@
 #pragma once
 
+#include "mmu/sql.h"
+#include "wl_config.h"
+
 #include <functional>
 #include <string>
 #include <unordered_set>
-
-#include "wl_config.h"
-
-// Forward declarations – full types come from sql_mm headers included in wl_database.cpp
-class ISQLInterface;
-class ISQLConnection;
-class ISQLQuery;
-class IMySQLClient;
-class ISQLiteClient;
 
 class WLDatabase
 {
@@ -28,12 +22,12 @@ public:
 
 	bool IsConnected() const
 	{
-		return m_bConnected;
+		return m_conn.IsConnected();
 	}
 
 	bool IsEnabled() const
 	{
-		return m_bEnabled;
+		return m_enabled;
 	}
 
 	// Asynchronously merge all rows from the DB into outSet.
@@ -48,24 +42,23 @@ private:
 	// Create schema tables if they don't exist.
 	void CreateSchema();
 
-	// Wrappers around m_pConnection->Query()
-	void Query(const char *query, std::function<void(ISQLQuery *)> cb);
-	void QueryFmt(std::function<void(ISQLQuery *)> cb, const char *fmt, ...);
+	// Forwarders to the shared connection.
+	void Query(const char *query, std::function<void(ISQLQuery *)> cb)
+	{
+		m_conn.Query(query, std::move(cb));
+	}
 
-	std::string Escape(const char *str);
+	std::string Escape(const char *str)
+	{
+		return m_conn.Escape(str);
+	}
 
-	ISQLInterface *m_pSQLInterface = nullptr;
-	IMySQLClient *m_pMySQLClient = nullptr;
-	ISQLiteClient *m_pSQLiteClient = nullptr;
-	ISQLConnection *m_pConnection = nullptr;
+	mmu::sql::Connection m_conn;
+	mmu::sql::ConnectParams m_params;
 
-	bool m_bConnected = false;
-	bool m_bEnabled = false;
+	bool m_enabled = false;
 	bool m_bMySQL = false;
-
 	std::string m_prefix;
-	std::string m_dbPath;  // scratch field (not used after Connect())
-	WLConfig m_connectCfg; // full config stored for Connect()
 };
 
 extern WLDatabase g_WLDatabase;

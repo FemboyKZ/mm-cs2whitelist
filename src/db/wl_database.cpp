@@ -4,12 +4,7 @@
 #include "common.h"
 
 #include <sql_mm.h>
-#include <mysql_mm.h>
-#include <sqlite_mm.h>
 
-#include <ISmmAPI.h>
-
-#include <cstdarg>
 #include <ctime>
 
 WLDatabase g_WLDatabase;
@@ -22,47 +17,30 @@ bool WLDatabase::Init(const WLConfig &cfg)
 		return false;
 	}
 
-	m_pSQLInterface = static_cast<ISQLInterface *>(g_SMAPI->MetaFactory(SQLMM_INTERFACE, nullptr, nullptr));
+	m_bMySQL = (cfg.dbType == "mysql");
+	m_prefix = cfg.dbPrefix;
 
-	if (!m_pSQLInterface)
+	if (!m_conn.Init(m_bMySQL ? mmu::sql::DbType::MySQL : mmu::sql::DbType::SQLite))
 	{
-		MMU_LOG_WARN("sql_mm not loaded; database support unavailable.\n");
 		return false;
 	}
+	m_conn.SetSchemaHook([this] { CreateSchema(); });
 
-	m_prefix = cfg.dbPrefix;
-	m_bMySQL = (cfg.dbType == "mysql");
+	m_params.path = cfg.dbPath;
+	m_params.host = cfg.dbHost;
+	m_params.user = cfg.dbUser;
+	m_params.pass = cfg.dbPass;
+	m_params.database = cfg.dbName;
+	m_params.port = cfg.dbPort;
 
-	if (m_bMySQL)
-	{
-		m_pMySQLClient = m_pSQLInterface->GetMySQLClient();
-		if (!m_pMySQLClient)
-		{
-			MMU_LOG_WARN("sql_mm MySQL client unavailable.\n");
-			return false;
-		}
-		m_dbPath = cfg.dbHost;
-	}
-	else
-	{
-		m_pSQLiteClient = m_pSQLInterface->GetSQLiteClient();
-		if (!m_pSQLiteClient)
-		{
-			MMU_LOG_WARN("sql_mm SQLite client unavailable.\n");
-			return false;
-		}
-		m_dbPath = cfg.dbPath;
-	}
-
-	m_connectCfg = cfg;
-	m_bEnabled = true;
+	m_enabled = true;
 	MMU_LOG_INFO("Database initialized (type=%s).\n", m_bMySQL ? "mysql" : "sqlite");
 	return true;
 }
 
 void WLDatabase::Connect(std::function<void(bool)> callback)
 {
-	if (!m_bEnabled)
+	if (!m_enabled)
 	{
 		if (callback)
 		{
@@ -70,78 +48,13 @@ void WLDatabase::Connect(std::function<void(bool)> callback)
 		}
 		return;
 	}
-
-	if (m_bMySQL)
-	{
-		MySQLConnectionInfo info;
-		info.host = m_connectCfg.dbHost.c_str();
-		info.user = m_connectCfg.dbUser.c_str();
-		info.pass = m_connectCfg.dbPass.c_str();
-		info.database = m_connectCfg.dbName.c_str();
-		info.port = m_connectCfg.dbPort;
-
-		m_pConnection = m_pMySQLClient->CreateMySQLConnection(info);
-	}
-	else
-	{
-		SQLiteConnectionInfo info;
-		info.database = m_connectCfg.dbPath.c_str();
-		m_pConnection = m_pSQLiteClient->CreateSQLiteConnection(info);
-	}
-
-	if (!m_pConnection)
-	{
-		MMU_LOG_WARN("Failed to create database connection object.\n");
-		if (callback)
-		{
-			callback(false);
-		}
-		return;
-	}
-
-	m_pConnection->Connect(
-		[this, callback](bool success)
-		{
-			m_bConnected = success;
-			if (success)
-			{
-				MMU_LOG_INFO("Database connected (%s).\n", m_bMySQL ? "MySQL" : "SQLite");
-
-				if (!m_bMySQL)
-				{
-					Query("PRAGMA journal_mode=WAL", [](ISQLQuery *) {});
-					Query("PRAGMA foreign_keys=ON", [](ISQLQuery *) {});
-				}
-				else
-				{
-					Query("SET NAMES utf8mb4", [](ISQLQuery *) {});
-				}
-
-				CreateSchema();
-			}
-			else
-			{
-				MMU_LOG_WARN("Database connection failed.\n");
-			}
-			if (callback)
-			{
-				callback(success);
-			}
-		});
+	m_conn.Connect(m_params, std::move(callback));
 }
 
 void WLDatabase::Shutdown()
 {
-	if (m_pConnection)
-	{
-		m_pConnection->Destroy();
-		m_pConnection = nullptr;
-	}
-	m_bConnected = false;
-	m_bEnabled = false;
-	m_pMySQLClient = nullptr;
-	m_pSQLiteClient = nullptr;
-	m_pSQLInterface = nullptr;
+	m_conn.Shutdown();
+	m_enabled = false;
 }
 
 void WLDatabase::CreateSchema()
@@ -178,7 +91,7 @@ void WLDatabase::CreateSchema()
 
 void WLDatabase::LoadEntries(std::unordered_set<std::string> &outSet, std::function<void(int)> callback)
 {
-	if (!m_bConnected)
+	if (!m_conn.IsConnected())
 	{
 		if (callback)
 		{
@@ -236,7 +149,7 @@ void WLDatabase::LoadEntries(std::unordered_set<std::string> &outSet, std::funct
 
 void WLDatabase::AddEntry(const std::string &authid)
 {
-	if (!m_bConnected)
+	if (!m_conn.IsConnected())
 	{
 		return;
 	}
@@ -259,7 +172,7 @@ void WLDatabase::AddEntry(const std::string &authid)
 
 void WLDatabase::RemoveEntry(const std::string &authid)
 {
-	if (!m_bConnected)
+	if (!m_conn.IsConnected())
 	{
 		return;
 	}
@@ -278,36 +191,4 @@ void WLDatabase::RemoveEntry(const std::string &authid)
 	}
 
 	Query(q, [](ISQLQuery *) {});
-}
-
-void WLDatabase::Query(const char *query, std::function<void(ISQLQuery *)> cb)
-{
-	if (!m_pConnection || !m_bConnected)
-	{
-		if (cb)
-		{
-			cb(nullptr);
-		}
-		return;
-	}
-	m_pConnection->Query(query, cb ? cb : [](ISQLQuery *) {});
-}
-
-void WLDatabase::QueryFmt(std::function<void(ISQLQuery *)> cb, const char *fmt, ...)
-{
-	char buf[4096];
-	va_list args;
-	va_start(args, fmt);
-	vsnprintf(buf, sizeof(buf), fmt, args);
-	va_end(args);
-	Query(buf, cb);
-}
-
-std::string WLDatabase::Escape(const char *str)
-{
-	if (!m_pConnection)
-	{
-		return str ? str : "";
-	}
-	return m_pConnection->Escape(str);
 }
