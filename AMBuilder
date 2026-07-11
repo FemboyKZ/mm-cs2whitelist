@@ -26,6 +26,7 @@ for sdk_target in MMSPlugin.sdk_targets:
         "src/utils/utils.cpp",
         "src/db/wl_config.cpp",
         "src/db/wl_database.cpp",
+        "vendor/mm-utils/mmu/http_client.cpp",
         "vendor/mm-utils/mmu/log.cpp",
     ]
 

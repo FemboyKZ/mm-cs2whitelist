@@ -10,6 +10,7 @@
 #include "utils/utils.h"
 #include "whitelist/whitelist_manager.h"
 
+#include "mmu/http_client.h"
 #include "mmu/log.h"
 
 #include <eiface.h>
@@ -41,6 +42,9 @@ bool CS2WhitelistPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t ma
 	logSetup.addonName = "cs2whitelist";
 	logSetup.toFile = true;
 	mmu::log::Init(logSetup);
+
+	mmu::http::SetUserAgent("CS2Whitelist/1.0");
+	mmu::http::ResetShutdownLatch();
 
 	GET_V_IFACE_CURRENT(GetEngineFactory, g_pEngine, IVEngineServer, INTERFACEVERSION_VENGINESERVER);
 	GET_V_IFACE_CURRENT(GetEngineFactory, g_pICvar, ICvar, CVAR_INTERFACE_VERSION);
@@ -75,6 +79,11 @@ bool CS2WhitelistPlugin::Unload(char *error, size_t maxlen)
 	m_listeners.clear();
 	g_SteamGroupManager.Shutdown();
 	g_WLDatabase.Shutdown();
+
+	// Join the HTTP worker, then drop any callbacks it queued for the game thread.
+	mmu::http::Shutdown();
+	mmu::http::ClearMainQueue();
+
 	MMU_LOG_INFO("Plugin unloaded.\n");
 
 	mmu::log::Shutdown();
@@ -108,12 +117,12 @@ void CS2WhitelistPlugin::AllPluginsLoaded()
 	if (g_pCS2Admin)
 	{
 		MMU_LOG_INFO("mm-cs2admin interface acquired! "
-					   "Admin immunity and in-game commands enabled.\n");
+					 "Admin immunity and in-game commands enabled.\n");
 	}
 	else
 	{
 		MMU_LOG_INFO("mm-cs2admin not loaded. "
-					   "Admin commands restricted to server console.\n");
+					 "Admin commands restricted to server console.\n");
 	}
 
 	char cfgPath[512];
@@ -151,8 +160,7 @@ void CS2WhitelistPlugin::AllPluginsLoaded()
 			{
 				if (success)
 				{
-					g_WLDatabase.LoadEntries(g_WLManager.GetSet(),
-											 [](int count) { MMU_LOG_INFO("Loaded %d entries from database.\n", count); });
+					g_WLDatabase.LoadEntries(g_WLManager.GetSet(), [](int count) { MMU_LOG_INFO("Loaded %d entries from database.\n", count); });
 				}
 			});
 	}
@@ -289,6 +297,8 @@ void CS2WhitelistPlugin::Hook_ClientDisconnect(CPlayerSlot slot, ENetworkDisconn
 
 void CS2WhitelistPlugin::Hook_GameFrame(bool simulating, bool bFirstTick, bool bLastTick)
 {
+	// Run HTTP continuations queued by the mmu::http worker (steam group checks).
+	mmu::http::DrainMainThread();
 	g_SteamGroupManager.OnGameFrame();
 }
 

@@ -1,19 +1,15 @@
 #ifndef _INCLUDE_WL_STEAMGROUP_MANAGER_H_
 #define _INCLUDE_WL_STEAMGROUP_MANAGER_H_
 
+#include <chrono>
 #include <cstdint>
 #include <string>
-#include <vector>
-#include <list>
 #include <unordered_map>
 #include <unordered_set>
-#include <chrono>
+#include <vector>
 
-#include <steam/isteamhttp.h>
-
-// Forward-declared here, full type pulled in via isteamhttp.h -> steam_api_common.h
-// CCallResult<T,P> and HTTPRequestCompleted_t are available after that include.
-
+// Steam group whitelisting over the shared mmu::http client.
+// HTTP callbacks arrive on a background thread and are marshalled to the game thread via mmu::http::QueueMainThread, drained from the GameFrame hook.
 class SteamGroupManager
 {
 public:
@@ -55,19 +51,6 @@ public:
 	}
 
 private:
-	// One context per active HTTP request. Stored in std::list for pointer
-	// stability (CCallResult cannot be moved or copied).
-	struct RequestCtx
-	{
-		bool isApi;       // true = API per-player check; false = XML group fetch
-		uint64_t groupId; // XML: group being fetched
-		int page;         // XML: 1-based page number
-		int slot;         // API: player slot (-1 for XML)
-		uint64_t xuid;    // API: player steamid64
-		HTTPRequestHandle hRequest = INVALID_HTTPREQUEST_HANDLE;
-		CCallResult<SteamGroupManager, HTTPRequestCompleted_t> callResult;
-	};
-
 	struct PendingPlayer
 	{
 		uint64_t xuid;
@@ -81,24 +64,27 @@ private:
 	// Groups whose XML fetch is complete
 	std::unordered_set<uint64_t> m_fetchedGroups;
 
-	// Active HTTP requests (std::list provides pointer-stable storage)
-	std::list<RequestCtx> m_requests;
-
 	// Players waiting for XML data to finish loading: slot -> info
 	std::unordered_map<int, PendingPlayer> m_pendingXml;
 	// Players waiting for an API response: slot -> info
 	std::unordered_map<int, PendingPlayer> m_pendingApi;
 
 	Config m_cfg;
-	ISteamHTTP *m_pHttp = nullptr;
 	// Merged group IDs: m_cfg.groupIds n IDs from whitelist.txt (populated in FetchGroups)
 	std::vector<uint64_t> m_effectiveGroupIds;
+
+	// Bumped on Shutdown and each StartXmlFetches so late HTTP continuations from a previous cycle are dropped instead of touching cleared state.
+	uint32_t m_generation = 0;
+	// XML fetches currently in flight (drives the deferred-fetch trigger).
+	int m_xmlInFlight = 0;
 
 	void StartXmlFetches();
 	void StartXmlFetch(uint64_t groupId, int page);
 	bool StartApiFetch(int slot, uint64_t xuid);
 
-	void OnHTTPResponse(HTTPRequestCompleted_t *pResult, bool bIOFailure);
+	// Main-thread continuations for completed requests.
+	void OnXmlResponse(uint64_t groupId, int page, bool ok, const std::string &body);
+	void OnApiResponse(int slot, uint64_t xuid, bool ok, const std::string &body);
 
 	void ParseXmlBody(uint64_t groupId, int page, const std::string &body);
 	bool ParseApiResponse(uint64_t xuid, const std::string &body) const;

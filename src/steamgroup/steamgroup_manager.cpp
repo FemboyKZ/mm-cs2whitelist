@@ -1,15 +1,19 @@
 #include "steamgroup_manager.h"
+#include "mmu/http_client.h"
 #include "mmu/log.h"
 
 #include "common.h"
 #include "whitelist/whitelist_manager.h"
 
 #include <eiface.h>
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
-#include <algorithm>
 
 SteamGroupManager g_SteamGroupManager;
+
+// Reject absurd response bodies before parsing.
+static constexpr size_t kMaxBodySize = 4u * 1024u * 1024u;
 
 static int ExtractIntTag(const std::string &body, const char *open, const char *close)
 {
@@ -36,41 +40,24 @@ static int ExtractIntTag(const std::string &body, const char *open, const char *
 void SteamGroupManager::Init(const Config &cfg)
 {
 	m_cfg = cfg;
-	m_pHttp = SteamGameServerHTTP();
 
 	if (m_cfg.enabled)
 	{
-		if (m_pHttp)
-		{
-			MMU_LOG_INFO("SteamGroup: initialized (method=%s).\n", m_cfg.method == Method::API ? "api" : "xml");
-		}
-		else
-		{
-			MMU_LOG_INFO("SteamGroup: SteamGameServerHTTP() not ready yet, will retry.\n");
-		}
+		MMU_LOG_INFO("SteamGroup: initialized (method=%s).\n", m_cfg.method == Method::API ? "api" : "xml");
 	}
 }
 
 void SteamGroupManager::Shutdown()
 {
-	if (m_pHttp)
-	{
-		for (auto &ctx : m_requests)
-		{
-			if (ctx.hRequest != INVALID_HTTPREQUEST_HANDLE)
-			{
-				ctx.callResult.Cancel();
-				m_pHttp->ReleaseHTTPRequest(ctx.hRequest);
-			}
-		}
-	}
-	m_requests.clear();
+	// Drop any late HTTP continuations from this cycle.
+	m_generation++;
+	m_xmlInFlight = 0;
+
 	m_pendingXml.clear();
 	m_pendingApi.clear();
 	m_memberSets.clear();
 	m_fetchedGroups.clear();
 	m_expectedCounts.clear();
-	m_pHttp = nullptr;
 }
 
 void SteamGroupManager::FetchGroups()
@@ -110,44 +97,18 @@ void SteamGroupManager::FetchGroups()
 		return;
 	}
 
-	if (!m_pHttp)
-	{
-		m_pHttp = SteamGameServerHTTP();
-		if (!m_pHttp)
-		{
-			MMU_LOG_INFO("SteamGroup: HTTP not ready, XML fetches deferred.\n");
-			return;
-		}
-		MMU_LOG_INFO("SteamGroup: acquired SteamGameServerHTTP().\n");
-	}
-
 	StartXmlFetches();
 }
 
 void SteamGroupManager::StartXmlFetches()
 {
+	// Invalidate any fetch cycle still in flight before clearing its state.
+	m_generation++;
+	m_xmlInFlight = 0;
+
 	m_memberSets.clear();
 	m_fetchedGroups.clear();
 	m_expectedCounts.clear();
-
-	for (auto it = m_requests.begin(); it != m_requests.end();)
-	{
-		if (!it->isApi)
-		{
-			if (m_pHttp && it->hRequest != INVALID_HTTPREQUEST_HANDLE)
-			{
-				it->callResult.Cancel();
-				m_pHttp->ReleaseHTTPRequest(it->hRequest);
-			}
-			it = m_requests.erase(it);
-		}
-		else
-		{
-			++it;
-		}
-	}
-
-	m_pendingXml.clear();
 
 	for (uint64_t gid : m_effectiveGroupIds)
 	{
@@ -157,11 +118,6 @@ void SteamGroupManager::StartXmlFetches()
 
 void SteamGroupManager::StartXmlFetch(uint64_t groupId, int page)
 {
-	if (!m_pHttp)
-	{
-		return;
-	}
-
 	char url[300];
 	if (page <= 1)
 	{
@@ -172,41 +128,30 @@ void SteamGroupManager::StartXmlFetch(uint64_t groupId, int page)
 		snprintf(url, sizeof(url), "https://steamcommunity.com/gid/%llu/memberslistxml/?xml=1&p=%d", (unsigned long long)groupId, page);
 	}
 
-	HTTPRequestHandle hReq = m_pHttp->CreateHTTPRequest(k_EHTTPMethodGET, url);
-	if (hReq == INVALID_HTTPREQUEST_HANDLE)
-	{
-		MMU_LOG_WARN("SteamGroup: failed to create request for group %llu p%d\n", (unsigned long long)groupId, page);
-		return;
-	}
+	m_xmlInFlight++;
+	const uint32_t gen = m_generation;
+	mmu::http::Get(url,
+				   [this, gen, groupId, page](bool ok, std::string body)
+				   {
+					   mmu::http::QueueMainThread(
+						   [this, gen, groupId, page, ok, body = std::move(body)]()
+						   {
+							   if (gen != m_generation)
+							   {
+								   return;
+							   }
+							   OnXmlResponse(groupId, page, ok, body);
+						   });
+				   });
 
-	m_requests.emplace_back();
-	RequestCtx &ctx = m_requests.back();
-	ctx.isApi = false;
-	ctx.groupId = groupId;
-	ctx.page = page;
-	ctx.slot = -1;
-	ctx.xuid = 0;
-	ctx.hRequest = hReq;
-
-	SteamAPICall_t hCall = k_uAPICallInvalid;
-	if (!m_pHttp->SendHTTPRequest(hReq, &hCall) || hCall == k_uAPICallInvalid)
-	{
-		m_pHttp->ReleaseHTTPRequest(hReq);
-		m_requests.pop_back();
-		MMU_LOG_WARN("SteamGroup: failed to send request for group %llu p%d\n", (unsigned long long)groupId, page);
-		return;
-	}
-
-	ctx.callResult.Set(hCall, this, &SteamGroupManager::OnHTTPResponse);
 	MMU_LOG_INFO("SteamGroup: fetching group %llu page %d...\n", (unsigned long long)groupId, page);
 }
 
 bool SteamGroupManager::StartApiFetch(int slot, uint64_t xuid)
 {
-	if (!m_pHttp || m_cfg.apiKey.empty())
+	if (m_cfg.apiKey.empty())
 	{
-		MMU_LOG_INFO("SteamGroup: StartApiFetch skipped (http=%s key=%s)\n", m_pHttp ? "ok" : "null",
-					   m_cfg.apiKey.empty() ? "empty" : "set");
+		MMU_LOG_INFO("SteamGroup: StartApiFetch skipped (no API key).\n");
 		return false;
 	}
 
@@ -214,37 +159,25 @@ bool SteamGroupManager::StartApiFetch(int slot, uint64_t xuid)
 	snprintf(url, sizeof(url), "https://api.steampowered.com/ISteamUser/GetUserGroupList/v1/?key=%s&steamid=%llu", m_cfg.apiKey.c_str(),
 			 (unsigned long long)xuid);
 
-	HTTPRequestHandle hReq = m_pHttp->CreateHTTPRequest(k_EHTTPMethodGET, url);
-	if (hReq == INVALID_HTTPREQUEST_HANDLE)
-	{
-		MMU_LOG_WARN("SteamGroup: failed to create API request for slot=%d xuid=%llu\n", slot, (unsigned long long)xuid);
-		return false;
-	}
-
-	m_requests.emplace_back();
-	RequestCtx &ctx = m_requests.back();
-	ctx.isApi = true;
-	ctx.groupId = 0;
-	ctx.page = 0;
-	ctx.slot = slot;
-	ctx.xuid = xuid;
-	ctx.hRequest = hReq;
-
-	SteamAPICall_t hCall = k_uAPICallInvalid;
-	if (!m_pHttp->SendHTTPRequest(hReq, &hCall) || hCall == k_uAPICallInvalid)
-	{
-		m_pHttp->ReleaseHTTPRequest(hReq);
-		m_requests.pop_back();
-		MMU_LOG_WARN("SteamGroup: failed to send API request for slot=%d xuid=%llu\n", slot, (unsigned long long)xuid);
-		return false;
-	}
-
-	ctx.callResult.Set(hCall, this, &SteamGroupManager::OnHTTPResponse);
-
 	PendingPlayer pp;
 	pp.xuid = xuid;
 	pp.startTime = std::chrono::steady_clock::now();
 	m_pendingApi[slot] = pp;
+
+	const uint32_t gen = m_generation;
+	mmu::http::Get(url,
+				   [this, gen, slot, xuid](bool ok, std::string body)
+				   {
+					   mmu::http::QueueMainThread(
+						   [this, gen, slot, xuid, ok, body = std::move(body)]()
+						   {
+							   if (gen != m_generation)
+							   {
+								   return;
+							   }
+							   OnApiResponse(slot, xuid, ok, body);
+						   });
+				   });
 
 	MMU_LOG_INFO("SteamGroup: API check started for slot=%d xuid=%llu\n", slot, (unsigned long long)xuid);
 	return true;
@@ -254,19 +187,9 @@ bool SteamGroupManager::CheckPlayer(int slot, uint64_t xuid, bool &pending)
 {
 	pending = false;
 
-	if (!m_pHttp)
-	{
-		m_pHttp = SteamGameServerHTTP();
-	}
-
 	if (!m_cfg.enabled)
 	{
 		MMU_LOG_WARN("SteamGroup: CheckPlayer slot=%d - disabled.\n", slot);
-		return false;
-	}
-	if (!m_pHttp)
-	{
-		MMU_LOG_INFO("SteamGroup: CheckPlayer slot=%d - no HTTP interface.\n", slot);
 		return false;
 	}
 	if (m_effectiveGroupIds.empty())
@@ -279,31 +202,10 @@ bool SteamGroupManager::CheckPlayer(int slot, uint64_t xuid, bool &pending)
 	{
 		if (!AllGroupsFetched())
 		{
-			bool hasFetch = false;
-			for (const auto &req : m_requests)
+			if (m_xmlInFlight == 0)
 			{
-				if (!req.isApi)
-				{
-					hasFetch = true;
-					break;
-				}
-			}
-
-			if (!hasFetch)
-			{
-				if (!m_pHttp)
-				{
-					m_pHttp = SteamGameServerHTTP();
-				}
-				if (m_pHttp)
-				{
-					MMU_LOG_INFO("SteamGroup: slot=%d triggered deferred XML fetch.\n", slot);
-					StartXmlFetches();
-				}
-				else
-				{
-					MMU_LOG_INFO("SteamGroup: slot=%d - XML fetch deferred, HTTP not ready.\n", slot);
-				}
+				MMU_LOG_INFO("SteamGroup: slot=%d triggered deferred XML fetch.\n", slot);
+				StartXmlFetches();
 			}
 
 			PendingPlayer pp;
@@ -332,73 +234,48 @@ bool SteamGroupManager::CheckPlayer(int slot, uint64_t xuid, bool &pending)
 	}
 }
 
-void SteamGroupManager::OnHTTPResponse(HTTPRequestCompleted_t *pResult, bool bIOFailure)
+void SteamGroupManager::OnXmlResponse(uint64_t groupId, int page, bool ok, const std::string &body)
 {
-	auto it = m_requests.begin();
-	for (; it != m_requests.end(); ++it)
+	if (m_xmlInFlight > 0)
 	{
-		if (it->hRequest == pResult->m_hRequest)
-		{
-			break;
-		}
+		m_xmlInFlight--;
 	}
-	if (it == m_requests.end())
+
+	if (ok && !body.empty() && body.size() < kMaxBodySize)
 	{
+		ParseXmlBody(groupId, page, body);
 		return;
 	}
 
-	const bool isApi = it->isApi;
-	const uint64_t groupId = it->groupId;
-	const int page = it->page;
-	const int slot = it->slot;
-	const uint64_t xuid = it->xuid;
-
-	std::string body;
-	const bool ok = !bIOFailure && pResult->m_bRequestSuccessful && pResult->m_eStatusCode == k_EHTTPStatusCode200OK && pResult->m_unBodySize > 0
-					&& pResult->m_unBodySize < (4u * 1024u * 1024u); // sanity limit: 4 MB
-
-	if (ok)
+	MMU_LOG_WARN("SteamGroup: XML fetch failed for group %llu p%d\n", (unsigned long long)groupId, page);
+	// Mark as done so pending players aren't stuck forever
+	m_fetchedGroups.insert(groupId);
+	if (AllGroupsFetched())
 	{
-		body.resize(pResult->m_unBodySize);
-		m_pHttp->GetHTTPResponseBodyData(pResult->m_hRequest, reinterpret_cast<uint8 *>(body.data()), pResult->m_unBodySize);
+		ProcessPendingXmlPlayers();
 	}
+}
 
-	m_pHttp->ReleaseHTTPRequest(pResult->m_hRequest);
-	m_requests.erase(it);
-
-	if (!isApi)
+void SteamGroupManager::OnApiResponse(int slot, uint64_t xuid, bool ok, const std::string &body)
+{
+	// Timed out, disconnected, or the slot was reused: drop the late answer.
+	auto it = m_pendingApi.find(slot);
+	if (it == m_pendingApi.end() || it->second.xuid != xuid)
 	{
-		if (!body.empty())
-		{
-			ParseXmlBody(groupId, page, body);
-		}
-		else
-		{
-			MMU_LOG_WARN("SteamGroup: XML fetch failed for group %llu p%d (HTTP %d)\n", (unsigned long long)groupId, page,
-						   static_cast<int>(pResult->m_eStatusCode));
-			// Mark as done so pending players aren't stuck forever
-			m_fetchedGroups.insert(groupId);
-			if (AllGroupsFetched())
-			{
-				ProcessPendingXmlPlayers();
-			}
-		}
+		return;
+	}
+	m_pendingApi.erase(it);
+
+	const bool inGroup = ok && !body.empty() && body.size() < kMaxBodySize && ParseApiResponse(xuid, body);
+	MMU_LOG_INFO("SteamGroup: API response for slot=%d xuid=%llu: %s (body_len=%u)\n", slot, (unsigned long long)xuid,
+				 inGroup ? "IN GROUP" : "NOT IN GROUP", (unsigned)body.size());
+	if (inGroup)
+	{
+		AllowPlayer(slot, xuid);
 	}
 	else
 	{
-		m_pendingApi.erase(slot);
-
-		const bool inGroup = !body.empty() && ParseApiResponse(xuid, body);
-		MMU_LOG_INFO("SteamGroup: API response for slot=%d xuid=%llu: %s (body_len=%u)\n", slot, (unsigned long long)xuid,
-					   inGroup ? "IN GROUP" : "NOT IN GROUP", (unsigned)body.size());
-		if (inGroup)
-		{
-			AllowPlayer(slot, xuid);
-		}
-		else
-		{
-			KickPlayer(slot);
-		}
+		KickPlayer(slot);
 	}
 }
 
@@ -459,8 +336,7 @@ void SteamGroupManager::ParseXmlBody(uint64_t groupId, int page, const std::stri
 		pos = tagEnd + kCloseLen;
 	}
 
-	MMU_LOG_INFO("SteamGroup: group %llu p%d: +%d members (%d total in set)\n", (unsigned long long)groupId, page, count,
-				   (int)members.size());
+	MMU_LOG_INFO("SteamGroup: group %llu p%d: +%d members (%d total in set)\n", (unsigned long long)groupId, page, count, (int)members.size());
 
 	const int expected = m_expectedCounts.count(groupId) ? m_expectedCounts.at(groupId) : 0;
 	if (expected > 0 && static_cast<int>(members.size()) < expected)
@@ -621,21 +497,7 @@ void SteamGroupManager::OnGameFrame()
 		{
 			const int slot = it->first;
 			it = m_pendingApi.erase(it);
-
-			for (auto rit = m_requests.begin(); rit != m_requests.end(); ++rit)
-			{
-				if (rit->isApi && rit->slot == slot)
-				{
-					rit->callResult.Cancel();
-					if (m_pHttp && rit->hRequest != INVALID_HTTPREQUEST_HANDLE)
-					{
-						m_pHttp->ReleaseHTTPRequest(rit->hRequest);
-					}
-					m_requests.erase(rit);
-					break;
-				}
-			}
-
+			// The late HTTP response is dropped by OnApiResponse's pending lookup.
 			MMU_LOG_WARN("SteamGroup: slot %d API check timed out.\n", slot);
 			KickPlayer(slot);
 		}
@@ -649,21 +511,5 @@ void SteamGroupManager::OnGameFrame()
 void SteamGroupManager::OnPlayerDisconnect(int slot)
 {
 	m_pendingXml.erase(slot);
-
-	if (m_pendingApi.erase(slot))
-	{
-		for (auto it = m_requests.begin(); it != m_requests.end(); ++it)
-		{
-			if (it->isApi && it->slot == slot)
-			{
-				it->callResult.Cancel();
-				if (m_pHttp && it->hRequest != INVALID_HTTPREQUEST_HANDLE)
-				{
-					m_pHttp->ReleaseHTTPRequest(it->hRequest);
-				}
-				m_requests.erase(it);
-				break;
-			}
-		}
-	}
+	m_pendingApi.erase(slot);
 }
