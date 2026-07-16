@@ -86,7 +86,19 @@ void WLDatabase::CreateSchema()
 				 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 				 p);
 	}
-	Query(q, [](ISQLQuery *) {});
+	// Logged from the query callback, which only fires once the statement actually round-trips.
+	Query(q,
+		  [](ISQLQuery *result)
+		  {
+			  if (result)
+			  {
+				  MMU_LOG_INFO("Whitelist schema created/verified.\n");
+			  }
+			  else
+			  {
+				  MMU_LOG_WARN("Whitelist schema creation failed, table may be missing.\n");
+			  }
+		  });
 }
 
 void WLDatabase::LoadEntries(std::unordered_set<std::string> &outSet, std::function<void(int)> callback)
