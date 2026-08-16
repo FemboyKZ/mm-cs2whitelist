@@ -89,6 +89,12 @@ public:
 
 private:
 	bool m_bLateLoaded = false;
+
+	// On a normal load the startup path already loads the file,
+	// fetches groups and reads the DB, and the first level init lands right on top of it.
+	// Only later level inits are real map changes.
+	bool m_bSkipLevelInitReload = false;
+
 	std::vector<ICS2WhitelistListener *> m_listeners;
 };
 

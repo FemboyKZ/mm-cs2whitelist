@@ -75,6 +75,7 @@ bool CS2WhitelistPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t ma
 	GET_V_IFACE_ANY(GetServerFactory, g_pGameClients, IServerGameClients, INTERFACEVERSION_SERVERGAMECLIENTS);
 
 	m_bLateLoaded = late;
+	m_bSkipLevelInitReload = !late;
 	g_SMAPI->AddListener(this, this);
 
 	SH_ADD_HOOK(IServerGameClients, OnClientConnected, g_pGameClients, SH_MEMBER(this, &CS2WhitelistPlugin::Hook_OnClientConnected), false);
@@ -195,6 +196,15 @@ void CS2WhitelistPlugin::OnLevelInit(char const *pMapName, char const *pMapEntit
 {
 	g_WLManager.ClearBlacklistCache();
 	g_WLManager.ClearWhitelistCache();
+
+	// Redoing the startup load here would fire a second round of group fetches,
+	// and StartXmlFetches throws away the first round's replies.
+	if (m_bSkipLevelInitReload)
+	{
+		m_bSkipLevelInitReload = false;
+		return;
+	}
+
 	g_WLManager.LoadFile();
 	g_SteamGroupManager.FetchGroups();
 
