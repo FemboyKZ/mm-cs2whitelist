@@ -20,12 +20,6 @@
 
 #include "iclientcvarvalue.h"
 
-SH_DECL_HOOK6_void(IServerGameClients, OnClientConnected, SH_NOATTRIB, 0, CPlayerSlot, const char *, uint64, const char *, const char *, bool);
-SH_DECL_HOOK4_void(IServerGameClients, ClientPutInServer, SH_NOATTRIB, 0, CPlayerSlot, char const *, int, uint64);
-SH_DECL_HOOK5_void(IServerGameClients, ClientDisconnect, SH_NOATTRIB, 0, CPlayerSlot, ENetworkDisconnectionReason, const char *, uint64,
-				   const char *);
-SH_DECL_HOOK3_void(IServerGameDLL, GameFrame, SH_NOATTRIB, 0, bool, bool, bool);
-
 CS2WhitelistPlugin g_ThisPlugin;
 PLUGIN_EXPOSE(CS2WhitelistPlugin, g_ThisPlugin);
 
@@ -56,6 +50,14 @@ void WL_LoadTranslations()
 	g_WLTranslations.SetDefaultLanguage(g_WLConfig.defaultLanguage);
 }
 
+CS2WhitelistPlugin::CS2WhitelistPlugin()
+	: m_OnClientConnected(&IServerGameClients::OnClientConnected, this, &CS2WhitelistPlugin::Hook_OnClientConnected, nullptr),
+	  m_ClientPutInServer(&IServerGameClients::ClientPutInServer, this, nullptr, &CS2WhitelistPlugin::Hook_ClientPutInServer),
+	  m_ClientDisconnect(&IServerGameClients::ClientDisconnect, this, nullptr, &CS2WhitelistPlugin::Hook_ClientDisconnect),
+	  m_GameFrame(&IServerGameDLL::GameFrame, this, &CS2WhitelistPlugin::Hook_GameFrame, nullptr)
+{
+}
+
 bool CS2WhitelistPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, bool late)
 {
 	PLUGIN_SAVEVARS();
@@ -78,10 +80,10 @@ bool CS2WhitelistPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t ma
 	m_bSkipLevelInitReload = !late;
 	g_SMAPI->AddListener(this, this);
 
-	SH_ADD_HOOK(IServerGameClients, OnClientConnected, g_pGameClients, SH_MEMBER(this, &CS2WhitelistPlugin::Hook_OnClientConnected), false);
-	SH_ADD_HOOK(IServerGameClients, ClientPutInServer, g_pGameClients, SH_MEMBER(this, &CS2WhitelistPlugin::Hook_ClientPutInServer), true);
-	SH_ADD_HOOK(IServerGameClients, ClientDisconnect, g_pGameClients, SH_MEMBER(this, &CS2WhitelistPlugin::Hook_ClientDisconnect), true);
-	SH_ADD_HOOK(IServerGameDLL, GameFrame, g_pServerGameDLL, SH_MEMBER(this, &CS2WhitelistPlugin::Hook_GameFrame), false);
+	m_OnClientConnected.Add(g_pGameClients);
+	m_ClientPutInServer.Add(g_pGameClients);
+	m_ClientDisconnect.Add(g_pGameClients);
+	m_GameFrame.Add(g_pServerGameDLL);
 
 	g_pCVar = g_pICvar;
 	META_CONVAR_REGISTER(FCVAR_RELEASE | FCVAR_GAMEDLL);
@@ -94,10 +96,10 @@ bool CS2WhitelistPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t ma
 
 bool CS2WhitelistPlugin::Unload(char *error, size_t maxlen)
 {
-	SH_REMOVE_HOOK(IServerGameClients, OnClientConnected, g_pGameClients, SH_MEMBER(this, &CS2WhitelistPlugin::Hook_OnClientConnected), false);
-	SH_REMOVE_HOOK(IServerGameClients, ClientPutInServer, g_pGameClients, SH_MEMBER(this, &CS2WhitelistPlugin::Hook_ClientPutInServer), true);
-	SH_REMOVE_HOOK(IServerGameClients, ClientDisconnect, g_pGameClients, SH_MEMBER(this, &CS2WhitelistPlugin::Hook_ClientDisconnect), true);
-	SH_REMOVE_HOOK(IServerGameDLL, GameFrame, g_pServerGameDLL, SH_MEMBER(this, &CS2WhitelistPlugin::Hook_GameFrame), false);
+	m_OnClientConnected.Remove(g_pGameClients);
+	m_ClientPutInServer.Remove(g_pGameClients);
+	m_ClientDisconnect.Remove(g_pGameClients);
+	m_GameFrame.Remove(g_pServerGameDLL);
 
 	g_pCS2Admin = nullptr;
 	m_listeners.clear();
@@ -231,35 +233,36 @@ void *CS2WhitelistPlugin::OnMetamodQuery(const char *iface, int *ret)
 	return nullptr;
 }
 
-void CS2WhitelistPlugin::Hook_OnClientConnected(CPlayerSlot slot, const char *pszName, uint64 xuid, const char *pszNetworkID, const char *pszAddress,
-												bool bFakePlayer)
+KHook::Return<void> CS2WhitelistPlugin::Hook_OnClientConnected(IServerGameClients *, CPlayerSlot slot, const char *pszName, uint64 xuid,
+															   const char *pszNetworkID, const char *pszAddress, bool bFakePlayer)
 {
 	g_WLPlayerManager.OnClientConnected(slot.Get(), xuid, pszAddress, bFakePlayer);
+	return {KHook::Action::Ignore};
 }
 
-void CS2WhitelistPlugin::Hook_ClientPutInServer(CPlayerSlot slot, char const *pszName, int type, uint64 xuid)
+KHook::Return<void> CS2WhitelistPlugin::Hook_ClientPutInServer(IServerGameClients *, CPlayerSlot slot, char const *pszName, int type, uint64 xuid)
 {
 	int idx = slot.Get();
 	const PlayerInfo *p = g_WLPlayerManager.GetPlayer(idx);
 	if (!p || p->fakePlayer)
 	{
-		return;
+		return {KHook::Action::Ignore};
 	}
 
 	if (!cv_enable.Get())
 	{
-		return;
+		return {KHook::Action::Ignore};
 	}
 	if (g_WLManager.IsWhitelistCached(p->xuid))
 	{
-		return;
+		return {KHook::Action::Ignore};
 	}
 
 	if (cv_immunity.Get() && g_pCS2Admin && g_pCS2Admin->IsAdmin(idx))
 	{
 		MMU_LOG_INFO("Slot %d (%s) has admin immunity.\n", idx, pszName ? pszName : "?");
 		g_WLManager.AddToWhitelistCache(p->xuid);
-		return;
+		return {KHook::Action::Ignore};
 	}
 
 	if (g_WLManager.IsBlacklisted(p->xuid))
@@ -272,13 +275,13 @@ void CS2WhitelistPlugin::Hook_ClientPutInServer(CPlayerSlot slot, char const *ps
 			g_pEngine->ClientPrintf(slot, kickmsg);
 			g_pEngine->DisconnectClient(slot, NETWORK_DISCONNECT_KICKED, msg.c_str());
 		}
-		return;
+		return {KHook::Action::Ignore};
 	}
 
 	if (g_WLManager.IsPlayerWhitelisted(idx))
 	{
 		g_WLManager.AddToWhitelistCache(p->xuid);
-		return;
+		return {KHook::Action::Ignore};
 	}
 
 	// Steam group check (may be async, returns pending=true to defer the kick)
@@ -288,12 +291,12 @@ void CS2WhitelistPlugin::Hook_ClientPutInServer(CPlayerSlot slot, char const *ps
 		bool inGroup = g_SteamGroupManager.CheckPlayer(idx, p->xuid, pending);
 		if (pending)
 		{
-			return; // async check in flight; kick (or allow) will happen from the callback
+			return {KHook::Action::Ignore}; // async check in flight; kick (or allow) will happen from the callback
 		}
 		if (inGroup)
 		{
 			g_WLManager.AddToWhitelistCache(p->xuid);
-			return;
+			return {KHook::Action::Ignore};
 		}
 	}
 
@@ -302,7 +305,7 @@ void CS2WhitelistPlugin::Hook_ClientPutInServer(CPlayerSlot slot, char const *ps
 		if (l->OnWhitelistKickPre(idx) == WLKickResult::Block)
 		{
 			g_WLManager.AddToWhitelistCache(p->xuid);
-			return;
+			return {KHook::Action::Ignore};
 		}
 	}
 
@@ -319,21 +322,25 @@ void CS2WhitelistPlugin::Hook_ClientPutInServer(CPlayerSlot slot, char const *ps
 
 		g_pEngine->DisconnectClient(slot, NETWORK_DISCONNECT_KICKED, msg.c_str());
 	}
+
+	return {KHook::Action::Ignore};
 }
 
-void CS2WhitelistPlugin::Hook_ClientDisconnect(CPlayerSlot slot, ENetworkDisconnectionReason reason, const char *pszName, uint64 xuid,
-											   const char *pszNetworkID)
+KHook::Return<void> CS2WhitelistPlugin::Hook_ClientDisconnect(IServerGameClients *, CPlayerSlot slot, ENetworkDisconnectionReason reason,
+															  const char *pszName, uint64 xuid, const char *pszNetworkID)
 {
 	const int idx = slot.Get();
 	g_SteamGroupManager.OnPlayerDisconnect(idx);
 	g_WLPlayerManager.OnClientDisconnect(idx);
+	return {KHook::Action::Ignore};
 }
 
-void CS2WhitelistPlugin::Hook_GameFrame(bool simulating, bool bFirstTick, bool bLastTick)
+KHook::Return<void> CS2WhitelistPlugin::Hook_GameFrame(IServerGameDLL *, bool simulating, bool bFirstTick, bool bLastTick)
 {
 	// Run HTTP continuations queued by the mmu::http worker (steam group checks).
 	mmu::http::DrainMainThread();
 	g_SteamGroupManager.OnGameFrame();
+	return {KHook::Action::Ignore};
 }
 
 bool CS2WhitelistPlugin::IsPlayerWhitelisted(int slot) const

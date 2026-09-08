@@ -10,6 +10,8 @@
 class CS2WhitelistPlugin : public ISmmPlugin, public IMetamodListener, public ICS2Whitelist
 {
 public:
+	CS2WhitelistPlugin();
+
 	bool Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, bool late);
 	bool Unload(char *error, size_t maxlen);
 	void AllPluginsLoaded();
@@ -63,11 +65,12 @@ public:
 	}
 
 public:
-	void Hook_OnClientConnected(CPlayerSlot slot, const char *pszName, uint64 xuid, const char *pszNetworkID, const char *pszAddress,
-								bool bFakePlayer);
-	void Hook_ClientPutInServer(CPlayerSlot slot, char const *pszName, int type, uint64 xuid);
-	void Hook_ClientDisconnect(CPlayerSlot slot, ENetworkDisconnectionReason reason, const char *pszName, uint64 xuid, const char *pszNetworkID);
-	void Hook_GameFrame(bool simulating, bool bFirstTick, bool bLastTick);
+	KHook::Return<void> Hook_OnClientConnected(IServerGameClients *, CPlayerSlot slot, const char *pszName, uint64 xuid, const char *pszNetworkID,
+											   const char *pszAddress, bool bFakePlayer);
+	KHook::Return<void> Hook_ClientPutInServer(IServerGameClients *, CPlayerSlot slot, char const *pszName, int type, uint64 xuid);
+	KHook::Return<void> Hook_ClientDisconnect(IServerGameClients *, CPlayerSlot slot, ENetworkDisconnectionReason reason, const char *pszName,
+											  uint64 xuid, const char *pszNetworkID);
+	KHook::Return<void> Hook_GameFrame(IServerGameDLL *, bool simulating, bool bFirstTick, bool bLastTick);
 
 public:
 	bool IsPlayerWhitelisted(int slot) const override;
@@ -96,6 +99,11 @@ private:
 	bool m_bSkipLevelInitReload = false;
 
 	std::vector<ICS2WhitelistListener *> m_listeners;
+
+	KHook::Virtual<IServerGameClients, void, CPlayerSlot, const char *, uint64, const char *, const char *, bool> m_OnClientConnected;
+	KHook::Virtual<IServerGameClients, void, CPlayerSlot, char const *, int, uint64> m_ClientPutInServer;
+	KHook::Virtual<IServerGameClients, void, CPlayerSlot, ENetworkDisconnectionReason, const char *, uint64, const char *> m_ClientDisconnect;
+	KHook::Virtual<IServerGameDLL, void, bool, bool, bool> m_GameFrame;
 };
 
 extern CS2WhitelistPlugin g_ThisPlugin;
