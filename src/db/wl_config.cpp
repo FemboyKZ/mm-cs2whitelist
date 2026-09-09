@@ -7,23 +7,17 @@
 #include <cstdint>
 #include <stdexcept>
 
+#include "mmu/str_utils.h"
 #include "mmu/kv_parser.h"
 #include "mmu/log.h"
 
 WLConfig g_WLConfig;
 
-static std::string ToLower(const std::string &s)
-{
-	std::string out = s;
-	std::transform(out.begin(), out.end(), out.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-	return out;
-}
-
 static void OnKV(const std::string &section, const std::string &key, const std::string &value, void *userdata)
 {
 	WLConfig *cfg = static_cast<WLConfig *>(userdata);
-	std::string sec = ToLower(section);
-	std::string k = ToLower(key);
+	std::string sec = str::ToLower(section);
+	std::string k = str::ToLower(key);
 
 	if (sec == "config")
 	{
@@ -64,7 +58,7 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 		}
 		else if (k == "method")
 		{
-			cfg->sgMethod = ToLower(value);
+			cfg->sgMethod = str::ToLower(value);
 		}
 		else if (k == "apikey")
 		{
@@ -103,7 +97,7 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 		}
 		else if (k == "type")
 		{
-			cfg->dbType = ToLower(value);
+			cfg->dbType = str::ToLower(value);
 		}
 		else if (k == "host")
 		{
