@@ -13,7 +13,7 @@ extern mmu::Translations g_WLTranslations;
 std::string WL_SlotLanguage(int slot);
 
 // Defined in cs2whitelist.cpp.
-// Re-acquires ClientCvarValue and reloads phrase tables. Call after (re)loading the plugin config.
+// Reloads phrase tables. Call after (re)loading the plugin config.
 void WL_LoadTranslations();
 
 // Translate `phrase` into the language of the client in `slot`.

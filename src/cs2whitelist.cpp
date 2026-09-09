@@ -11,14 +11,16 @@
 #include "utils/utils.h"
 #include "whitelist/whitelist_manager.h"
 
+#include "mmu/cvarquery.h"
 #include "mmu/http_client.h"
 #include "mmu/log.h"
 
 #include <eiface.h>
+#include <engine/igameeventsystem.h>
+#include <interfaces/interfaces.h>
 #include <iserver.h>
+#include <networksystem/inetworkmessages.h>
 #include <tier1/convar.h>
-
-#include "iclientcvarvalue.h"
 
 CS2WhitelistPlugin g_ThisPlugin;
 PLUGIN_EXPOSE(CS2WhitelistPlugin, g_ThisPlugin);
@@ -29,21 +31,16 @@ IServerGameClients *g_pGameClients = nullptr;
 IServerGameDLL *g_pServerGameDLL = nullptr;
 ICvar *g_pICvar = nullptr;
 ICS2Admin *g_pCS2Admin = nullptr;
-
-// Optional. Provides each client's cl_language for phrase translation.
-// May load after us, so it is re-acquired whenever translations reload.
-static IClientCvarValue *g_pClientCvarValue = nullptr;
+IGameEventSystem *g_pGameEventSystem = nullptr;
 
 std::string WL_SlotLanguage(int slot)
 {
-	const char *raw = g_pClientCvarValue ? g_pClientCvarValue->GetClientLanguage(CPlayerSlot(slot)) : nullptr;
+	const char *raw = mmu::cvarquery::GetClientLanguage(slot);
 	return g_WLTranslations.MapClientLanguage(raw);
 }
 
-// Re-acquire ClientCvarValue and reload phrase tables.
 void WL_LoadTranslations()
 {
-	g_pClientCvarValue = static_cast<IClientCvarValue *>(g_SMAPI->MetaFactory(CLIENTCVARVALUE_INTERFACE, nullptr, nullptr));
 	// Phrases render in consoles and on the disconnect screen, never in chat.
 	g_WLTranslations.SetResolveColorTags(false);
 	g_WLTranslations.Load(g_SMAPI->GetBaseDir(), "cs2whitelist");
@@ -75,10 +72,15 @@ bool CS2WhitelistPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t ma
 	GET_V_IFACE_CURRENT(GetEngineFactory, g_pICvar, ICvar, CVAR_INTERFACE_VERSION);
 	GET_V_IFACE_ANY(GetServerFactory, g_pServerGameDLL, IServerGameDLL, INTERFACEVERSION_SERVERGAMEDLL);
 	GET_V_IFACE_ANY(GetServerFactory, g_pGameClients, IServerGameClients, INTERFACEVERSION_SERVERGAMECLIENTS);
+	GET_V_IFACE_ANY(GetEngineFactory, g_pNetworkMessages, INetworkMessages, NETWORKMESSAGES_INTERFACE_VERSION);
+	GET_V_IFACE_ANY(GetEngineFactory, g_pGameEventSystem, IGameEventSystem, GAMEEVENTSYSTEM_INTERFACE_VERSION);
 
 	m_bLateLoaded = late;
 	m_bSkipLevelInitReload = !late;
 	g_SMAPI->AddListener(this, this);
+
+	// Non fatal, translations fall back to the default language.
+	mmu::cvarquery::Init(g_pEngine);
 
 	m_OnClientConnected.Add(g_pGameClients);
 	m_ClientPutInServer.Add(g_pGameClients);
@@ -100,6 +102,9 @@ bool CS2WhitelistPlugin::Unload(char *error, size_t maxlen)
 	m_ClientPutInServer.Remove(g_pGameClients);
 	m_ClientDisconnect.Remove(g_pGameClients);
 	m_GameFrame.Remove(g_pServerGameDLL);
+
+	// Drops pending callbacks pointing into this DLL.
+	mmu::cvarquery::Shutdown();
 
 	g_pCS2Admin = nullptr;
 	m_listeners.clear();
@@ -237,6 +242,7 @@ KHook::Return<void> CS2WhitelistPlugin::Hook_OnClientConnected(IServerGameClient
 															   const char *pszNetworkID, const char *pszAddress, bool bFakePlayer)
 {
 	g_WLPlayerManager.OnClientConnected(slot.Get(), xuid, pszAddress, bFakePlayer);
+	mmu::cvarquery::OnClientConnected(slot.Get(), bFakePlayer);
 	return {KHook::Action::Ignore};
 }
 
@@ -332,6 +338,7 @@ KHook::Return<void> CS2WhitelistPlugin::Hook_ClientDisconnect(IServerGameClients
 	const int idx = slot.Get();
 	g_SteamGroupManager.OnPlayerDisconnect(idx);
 	g_WLPlayerManager.OnClientDisconnect(idx);
+	mmu::cvarquery::OnClientDisconnect(idx);
 	return {KHook::Action::Ignore};
 }
 
