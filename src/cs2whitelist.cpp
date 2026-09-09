@@ -30,7 +30,7 @@ IVEngineServer *g_pEngine = nullptr;
 IServerGameClients *g_pGameClients = nullptr;
 IServerGameDLL *g_pServerGameDLL = nullptr;
 ICvar *g_pICvar = nullptr;
-ICS2Admin *g_pCS2Admin = nullptr;
+mmu::AdminAccess g_CS2Admin("whitelist");
 IGameEventSystem *g_pGameEventSystem = nullptr;
 
 std::string WL_SlotLanguage(int slot)
@@ -106,7 +106,7 @@ bool CS2WhitelistPlugin::Unload(char *error, size_t maxlen)
 	// Drops pending callbacks pointing into this DLL.
 	mmu::cvarquery::Shutdown();
 
-	g_pCS2Admin = nullptr;
+	g_CS2Admin.Shutdown();
 	m_listeners.clear();
 	g_SteamGroupManager.Shutdown();
 	g_WLDatabase.Shutdown();
@@ -123,37 +123,33 @@ bool CS2WhitelistPlugin::Unload(char *error, size_t maxlen)
 
 void CS2WhitelistPlugin::OnPluginLoad(PluginId id)
 {
-	// Re-check if mm-cs2admin is now available (e.g. loaded dynamically after us).
-	if (!g_pCS2Admin)
+	// Re-resolve unconditionally. A cached non-null pointer is not proof the interface is still the live one.
+	if (g_CS2Admin.Refresh() == mmu::BridgeChange::Loaded)
 	{
-		g_pCS2Admin = static_cast<ICS2Admin *>(g_SMAPI->MetaFactory(CS2ADMIN_INTERFACE, nullptr, nullptr));
-		if (g_pCS2Admin)
-		{
-			MMU_LOG_INFO("mm-cs2admin interface acquired (late load).\n");
-		}
+		MMU_LOG_INFO("mm-cs2admin interface acquired (late load).\n");
 	}
 }
 
 void CS2WhitelistPlugin::OnPluginUnload(PluginId id)
 {
-	// Re-check if mm-cs2admin is still available; if it was the unloaded plugin,
-	// MetaFactory will return nullptr and we clear the dangling pointer.
-	g_pCS2Admin = static_cast<ICS2Admin *>(g_SMAPI->MetaFactory(CS2ADMIN_INTERFACE, nullptr, nullptr));
+	// If mm-cs2admin was the plugin that unloaded, this drops the now-dangling pointer.
+	if (g_CS2Admin.Refresh() == mmu::BridgeChange::Unloaded)
+	{
+		MMU_LOG_INFO("mm-cs2admin unloaded - admin commands restricted to server console.\n");
+	}
 }
 
 void CS2WhitelistPlugin::AllPluginsLoaded()
 {
-	g_pCS2Admin = static_cast<ICS2Admin *>(g_SMAPI->MetaFactory(CS2ADMIN_INTERFACE, nullptr, nullptr));
+	g_CS2Admin.Refresh();
 
-	if (g_pCS2Admin)
+	if (g_CS2Admin.Available())
 	{
-		MMU_LOG_INFO("mm-cs2admin interface acquired! "
-					 "Admin immunity and in-game commands enabled.\n");
+		MMU_LOG_INFO("mm-cs2admin interface acquired! Admin immunity and in-game commands enabled.\n");
 	}
 	else
 	{
-		MMU_LOG_INFO("mm-cs2admin not loaded. "
-					 "Admin commands restricted to server console.\n");
+		MMU_LOG_INFO("mm-cs2admin not loaded. Admin commands restricted to server console.\n");
 	}
 
 	char cfgPath[512];
@@ -264,7 +260,7 @@ KHook::Return<void> CS2WhitelistPlugin::Hook_ClientPutInServer(IServerGameClient
 		return {KHook::Action::Ignore};
 	}
 
-	if (cv_immunity.Get() && g_pCS2Admin && g_pCS2Admin->IsAdmin(idx))
+	if (cv_immunity.Get() && g_CS2Admin.IsAdmin(idx))
 	{
 		MMU_LOG_INFO("Slot %d (%s) has admin immunity.\n", idx, pszName ? pszName : "?");
 		g_WLManager.AddToWhitelistCache(p->xuid);

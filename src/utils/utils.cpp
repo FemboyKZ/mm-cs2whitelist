@@ -114,13 +114,15 @@ bool HasAdminAccess(int slot, const char *commandName, uint32_t defaultFlag)
 		return true;
 	}
 
-	if (!g_pCS2Admin)
+	// Deliberately stricter than AdminAccess::CanUseCommand's own fallback:
+	// with mm-cs2admin absent every whitelist command is console-only, even one that named no required flag.
+	if (!g_CS2Admin.Available())
 	{
 		ReplyToSlotT(slot, "mm-cs2admin is not loaded; this command can only be used from the server console.");
 		return false;
 	}
 
-	if (g_pCS2Admin->CanUseCommand(slot, commandName, "whitelist", defaultFlag))
+	if (g_CS2Admin.CanUseCommand(slot, commandName, defaultFlag))
 	{
 		return true;
 	}
