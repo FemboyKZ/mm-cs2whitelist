@@ -1,7 +1,7 @@
 #include "utils.h"
 #include "common.h"
 #include "lang/translations.h"
-#include "vendor/interfaces/mm-cs2admin/ics2admin.h"
+#include "interfaces/cs2admin/ics2admin.h"
 
 #include <cctype>
 #include <cstring>

@@ -3,7 +3,7 @@
 
 #include "common.h"
 #include "version_gen.h"
-#include "public/ics2whitelist.h"
+#include "interfaces/cs2whitelist/ics2whitelist.h"
 
 #include <vector>
 
