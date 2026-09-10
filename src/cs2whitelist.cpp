@@ -114,7 +114,6 @@ bool CS2WhitelistPlugin::Unload(char *error, size_t maxlen)
 
 void CS2WhitelistPlugin::OnPluginLoad(PluginId id)
 {
-	// Always re-resolve. A reload in place leaves a stale non-null pointer.
 	if (g_CS2Admin.Refresh() == mmu::BridgeChange::Loaded)
 	{
 		MMU_LOG_INFO("mm-cs2admin interface acquired (late load).\n");
