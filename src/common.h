@@ -9,8 +9,7 @@
 #include <cstdint>
 #include <string>
 
-// mm-cs2admin permission gate.
-// Optional: the whitelist works without it, with in-game commands restricted to the server console.
+// Optional. Without mm-cs2admin, in-game commands are console-only.
 extern mmu::AdminAccess g_CS2Admin;
 
 #endif // _INCLUDE_WL_COMMON_H_

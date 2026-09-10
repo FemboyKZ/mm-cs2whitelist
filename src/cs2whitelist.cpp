@@ -59,21 +59,12 @@ bool CS2WhitelistPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t ma
 {
 	PLUGIN_SAVEVARS();
 
-	mmu::log::Setup logSetup;
-	logSetup.channelName = "CS2Whitelist";
-	logSetup.addonName = "cs2whitelist";
-	logSetup.toFile = true;
-	mmu::log::Init(logSetup);
+	mmu::log::Init("CS2Whitelist", "cs2whitelist");
 
 	mmu::http::SetUserAgent("CS2Whitelist/1.0");
 	mmu::http::ResetShutdownLatch();
 
-	GET_V_IFACE_CURRENT(GetEngineFactory, g_pEngine, IVEngineServer, INTERFACEVERSION_VENGINESERVER);
-	GET_V_IFACE_CURRENT(GetEngineFactory, g_pICvar, ICvar, CVAR_INTERFACE_VERSION);
-	GET_V_IFACE_ANY(GetServerFactory, g_pServerGameDLL, IServerGameDLL, INTERFACEVERSION_SERVERGAMEDLL);
-	GET_V_IFACE_ANY(GetServerFactory, g_pGameClients, IServerGameClients, INTERFACEVERSION_SERVERGAMECLIENTS);
-	GET_V_IFACE_ANY(GetEngineFactory, g_pNetworkMessages, INetworkMessages, NETWORKMESSAGES_INTERFACE_VERSION);
-	GET_V_IFACE_ANY(GetEngineFactory, g_pGameEventSystem, IGameEventSystem, GAMEEVENTSYSTEM_INTERFACE_VERSION);
+	MMU_GET_CORE_INTERFACES();
 
 	m_bLateLoaded = late;
 	m_bSkipLevelInitReload = !late;
@@ -123,7 +114,7 @@ bool CS2WhitelistPlugin::Unload(char *error, size_t maxlen)
 
 void CS2WhitelistPlugin::OnPluginLoad(PluginId id)
 {
-	// Re-resolve unconditionally. A cached non-null pointer is not proof the interface is still the live one.
+	// Always re-resolve. A reload in place leaves a stale non-null pointer.
 	if (g_CS2Admin.Refresh() == mmu::BridgeChange::Loaded)
 	{
 		MMU_LOG_INFO("mm-cs2admin interface acquired (late load).\n");
@@ -132,7 +123,6 @@ void CS2WhitelistPlugin::OnPluginLoad(PluginId id)
 
 void CS2WhitelistPlugin::OnPluginUnload(PluginId id)
 {
-	// If mm-cs2admin was the plugin that unloaded, this drops the now-dangling pointer.
 	if (g_CS2Admin.Refresh() == mmu::BridgeChange::Unloaded)
 	{
 		MMU_LOG_INFO("mm-cs2admin unloaded - admin commands restricted to server console.\n");

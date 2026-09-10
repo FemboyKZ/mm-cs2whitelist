@@ -2,6 +2,7 @@
 #define _INCLUDE_WL_PLAYER_MANAGER_H_
 
 #include "common.h"
+#include "mmu/player_table.h"
 #include <cstdint>
 #include <string>
 
@@ -21,7 +22,7 @@ public:
 	const PlayerInfo *GetPlayer(int slot) const;
 
 private:
-	PlayerInfo m_players[MAXPLAYERS + 1];
+	mmu::PlayerTable<PlayerInfo> m_players;
 };
 
 extern WLPlayerManager g_WLPlayerManager;

@@ -37,13 +37,9 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 		{
 			cfg->logMode = std::atoi(value.c_str());
 		}
-		else if (k == "logtofile")
+		else if (mmu::config::ApplyLogKey(cfg->log, k, value))
 		{
-			cfg->logToFile = (value != "0");
-		}
-		else if (k == "logretentiondays")
-		{
-			cfg->logRetentionDays = std::atoi(value.c_str());
+			// consumed
 		}
 		else if (k == "defaultlanguage")
 		{
@@ -95,37 +91,9 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 		{
 			cfg->dbEnabled = (value != "0");
 		}
-		else if (k == "type")
+		else
 		{
-			cfg->dbType = str::ToLower(value);
-		}
-		else if (k == "host")
-		{
-			cfg->dbHost = value;
-		}
-		else if (k == "user" || k == "username")
-		{
-			cfg->dbUser = value;
-		}
-		else if (k == "pass" || k == "password")
-		{
-			cfg->dbPass = value;
-		}
-		else if (k == "database" || k == "name" || k == "dbname")
-		{
-			cfg->dbName = value;
-		}
-		else if (k == "port")
-		{
-			cfg->dbPort = std::atoi(value.c_str());
-		}
-		else if (k == "path" || k == "db_path")
-		{
-			cfg->dbPath = value;
-		}
-		else if (k == "prefix")
-		{
-			cfg->dbPrefix = value;
+			mmu::config::ApplyDatabaseKey(cfg->database, k, value);
 		}
 	}
 }
@@ -153,7 +121,6 @@ bool WL_LoadConfig(const char *filePath, WLConfig &out)
 
 	kv::ParseSection(file, root.value, OnKV, &out);
 
-	mmu::log::SetToFile(out.logToFile);
-	mmu::log::SetRetentionDays(out.logRetentionDays);
+	mmu::config::ApplyLogBlock(out.log);
 	return true;
 }

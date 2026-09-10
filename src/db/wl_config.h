@@ -1,4 +1,6 @@
 #pragma once
+#include "mmu/config_blocks.h"
+
 #include <string>
 #include <vector>
 #include <cstdint>
@@ -10,20 +12,13 @@ struct WLConfig
 	bool immunity = true;
 	std::string filename = "whitelist.txt";
 	int logMode = 0;                    // 0=off  1=always  2=once per player per map
-	bool logToFile = true;              // mirror log output to addons/cs2whitelist/logs
-	int logRetentionDays = 30;          // delete log files older than this, 0 keeps all
 	std::string defaultLanguage = "en"; // phrase-file key used when a client's language is unknown
+
+	mmu::config::LogBlock log;
 
 	// [Database] section
 	bool dbEnabled = false;
-	std::string dbType = "sqlite";
-	std::string dbHost = "localhost";
-	std::string dbUser = "root";
-	std::string dbPass = "";
-	std::string dbName = "cs2whitelist";
-	int dbPort = 3306;
-	std::string dbPath = "addons/cs2whitelist/whitelist.db";
-	std::string dbPrefix = "cs2wl";
+	mmu::config::DatabaseBlock database = mmu::config::DatabaseBlock::Defaults("cs2whitelist", "addons/cs2whitelist/whitelist.db", "cs2wl");
 
 	// [SteamGroups] section
 	bool sgEnabled = false;

@@ -5,32 +5,23 @@ WLPlayerManager g_WLPlayerManager;
 
 void WLPlayerManager::OnClientConnected(int slot, uint64_t xuid, const char *address, bool fakePlayer)
 {
-	if (slot < 0 || slot > MAXPLAYERS)
+	PlayerInfo *p = m_players.Get(slot);
+	if (!p)
 	{
 		return;
 	}
 
-	m_players[slot].xuid = xuid;
-	m_players[slot].fakePlayer = fakePlayer;
-	m_players[slot].ip = str::StripPort(address ? address : "");
+	p->xuid = xuid;
+	p->fakePlayer = fakePlayer;
+	p->ip = str::StripPort(address ? address : "");
 }
 
 void WLPlayerManager::OnClientDisconnect(int slot)
 {
-	if (slot < 0 || slot > MAXPLAYERS)
-	{
-		return;
-	}
-
-	m_players[slot] = PlayerInfo {};
+	m_players.Clear(slot);
 }
 
 const PlayerInfo *WLPlayerManager::GetPlayer(int slot) const
 {
-	if (slot < 0 || slot > MAXPLAYERS)
-	{
-		return nullptr;
-	}
-
-	return &m_players[slot];
+	return m_players.Get(slot);
 }

@@ -17,8 +17,8 @@ bool WLDatabase::Init(const WLConfig &cfg)
 		return false;
 	}
 
-	m_bMySQL = (cfg.dbType == "mysql");
-	m_prefix = cfg.dbPrefix;
+	m_bMySQL = cfg.database.IsMySQL();
+	m_prefix = cfg.database.prefix;
 
 	if (!m_conn.Init(m_bMySQL ? mmu::sql::DbType::MySQL : mmu::sql::DbType::SQLite))
 	{
@@ -26,12 +26,7 @@ bool WLDatabase::Init(const WLConfig &cfg)
 	}
 	m_conn.SetSchemaHook([this] { CreateSchema(); });
 
-	m_params.path = cfg.dbPath;
-	m_params.host = cfg.dbHost;
-	m_params.user = cfg.dbUser;
-	m_params.pass = cfg.dbPass;
-	m_params.database = cfg.dbName;
-	m_params.port = cfg.dbPort;
+	m_params = cfg.database.ToConnectParams();
 
 	m_enabled = true;
 	MMU_LOG_INFO("Database initialized (type=%s).\n", m_bMySQL ? "mysql" : "sqlite");
