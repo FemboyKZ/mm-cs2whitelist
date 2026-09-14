@@ -217,6 +217,12 @@ bool WLManager::AddEntry(const char *entry)
 	{
 		g_WLDatabase.AddEntry(normalized);
 	}
+	if (inserted)
+	{
+		// A player kicked earlier this map sits in the blacklist cache, which is checked before the whitelist.
+		// An entry can be an IP as well as a SteamID, so drop the whole cache rather than guess which players it covers.
+		ClearBlacklistCache();
+	}
 	return inserted;
 }
 
@@ -232,6 +238,11 @@ bool WLManager::RemoveEntry(const char *entry)
 	if (erased && g_WLDatabase.IsConnected())
 	{
 		g_WLDatabase.RemoveEntry(normalized);
+	}
+	if (erased)
+	{
+		// Otherwise a removed player stays let in by the whitelist cache until the map changes.
+		ClearWhitelistCache();
 	}
 	return erased;
 }
