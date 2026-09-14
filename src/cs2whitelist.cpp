@@ -240,20 +240,34 @@ KHook::Return<void> CS2WhitelistPlugin::Hook_ClientPutInServer(IServerGameClient
 		return {KHook::Action::Ignore};
 	}
 
+	m_pendingChecks.push_back({idx, p->xuid, pszName ? pszName : ""});
+	return {KHook::Action::Ignore};
+}
+
+void CS2WhitelistPlugin::CheckPlayer(int idx, const std::string &name)
+{
+	CPlayerSlot slot(idx);
+	const char *pszName = name.c_str();
+	const PlayerInfo *p = g_WLPlayerManager.GetPlayer(idx);
+	if (!p)
+	{
+		return;
+	}
+
 	if (!cv_enable.Get())
 	{
-		return {KHook::Action::Ignore};
+		return;
 	}
 	if (g_WLManager.IsWhitelistCached(p->xuid))
 	{
-		return {KHook::Action::Ignore};
+		return;
 	}
 
 	if (cv_immunity.Get() && g_CS2Admin.IsAdmin(idx))
 	{
 		MMU_LOG_INFO("Slot %d (%s) has admin immunity.\n", idx, pszName ? pszName : "?");
 		g_WLManager.AddToWhitelistCache(p->xuid);
-		return {KHook::Action::Ignore};
+		return;
 	}
 
 	if (g_WLManager.IsBlacklisted(p->xuid))
@@ -266,13 +280,13 @@ KHook::Return<void> CS2WhitelistPlugin::Hook_ClientPutInServer(IServerGameClient
 			g_pEngine->ClientPrintf(slot, kickmsg);
 			g_pEngine->DisconnectClient(slot, NETWORK_DISCONNECT_KICKED, msg.c_str());
 		}
-		return {KHook::Action::Ignore};
+		return;
 	}
 
 	if (g_WLManager.IsPlayerWhitelisted(idx))
 	{
 		g_WLManager.AddToWhitelistCache(p->xuid);
-		return {KHook::Action::Ignore};
+		return;
 	}
 
 	// Steam group check (may be async, returns pending=true to defer the kick)
@@ -282,12 +296,12 @@ KHook::Return<void> CS2WhitelistPlugin::Hook_ClientPutInServer(IServerGameClient
 		bool inGroup = g_SteamGroupManager.CheckPlayer(idx, p->xuid, pending);
 		if (pending)
 		{
-			return {KHook::Action::Ignore}; // async check in flight; kick (or allow) will happen from the callback
+			return; // async check in flight; kick (or allow) will happen from the callback
 		}
 		if (inGroup)
 		{
 			g_WLManager.AddToWhitelistCache(p->xuid);
-			return {KHook::Action::Ignore};
+			return;
 		}
 	}
 
@@ -296,7 +310,7 @@ KHook::Return<void> CS2WhitelistPlugin::Hook_ClientPutInServer(IServerGameClient
 		if (l->OnWhitelistKickPre(idx) == WLKickResult::Block)
 		{
 			g_WLManager.AddToWhitelistCache(p->xuid);
-			return {KHook::Action::Ignore};
+			return;
 		}
 	}
 
@@ -314,7 +328,7 @@ KHook::Return<void> CS2WhitelistPlugin::Hook_ClientPutInServer(IServerGameClient
 		g_pEngine->DisconnectClient(slot, NETWORK_DISCONNECT_KICKED, msg.c_str());
 	}
 
-	return {KHook::Action::Ignore};
+	return;
 }
 
 KHook::Return<void> CS2WhitelistPlugin::Hook_ClientDisconnect(IServerGameClients *, CPlayerSlot slot, ENetworkDisconnectionReason reason,
@@ -332,6 +346,22 @@ KHook::Return<void> CS2WhitelistPlugin::Hook_GameFrame(IServerGameDLL *, bool si
 	// Run HTTP continuations queued by the mmu::http worker (steam group checks).
 	mmu::http::DrainMainThread();
 	g_SteamGroupManager.OnGameFrame();
+
+	if (!m_pendingChecks.empty())
+	{
+		// Swapped out first, a kick below re-enters the client hooks.
+		std::vector<PendingCheck> checks;
+		checks.swap(m_pendingChecks);
+		for (const PendingCheck &check : checks)
+		{
+			// The slot may have emptied or been reused since it was queued.
+			const PlayerInfo *p = g_WLPlayerManager.GetPlayer(check.slot);
+			if (p && !p->fakePlayer && p->xuid == check.xuid)
+			{
+				CheckPlayer(check.slot, check.name);
+			}
+		}
+	}
 	return {KHook::Action::Ignore};
 }
 

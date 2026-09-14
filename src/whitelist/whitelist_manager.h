@@ -74,7 +74,11 @@ public:
 	}
 
 private:
+	// Everything that grants access, the file's entries plus whatever the DB merged in.
 	std::unordered_set<std::string> m_whitelist;
+	// Only what SaveFile writes back.
+	// Writing m_whitelist would copy every DB entry into the file, where removing it from the DB could no longer revoke it.
+	std::unordered_set<std::string> m_fileEntries;
 	std::unordered_set<uint64_t> m_blacklistCache;
 	std::unordered_set<uint64_t> m_whitelistCache;
 	std::vector<uint64_t> m_fileGroupIds;

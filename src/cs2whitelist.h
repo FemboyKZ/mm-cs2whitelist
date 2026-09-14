@@ -5,6 +5,7 @@
 #include "version_gen.h"
 #include "interfaces/cs2whitelist/ics2whitelist.h"
 
+#include <string>
 #include <vector>
 
 class CS2WhitelistPlugin : public ISmmPlugin, public IMetamodListener, public ICS2Whitelist
@@ -99,6 +100,21 @@ private:
 	bool m_bSkipLevelInitReload = false;
 
 	std::vector<ICS2WhitelistListener *> m_listeners;
+
+	// The whitelist decision for one player, kick included.
+	void CheckPlayer(int slot, const std::string &name);
+
+	struct PendingCheck
+	{
+		int slot;
+		uint64_t xuid;
+		std::string name;
+	};
+
+	// Decided on the GameFrame after ClientPutInServer rather than inside it.
+	// mm-cs2admin assigns admin flags in its own ClientPutInServer hook,
+	// and which plugin's hook runs first follows load order, which nothing enforces.
+	std::vector<PendingCheck> m_pendingChecks;
 
 	KHook::Virtual<IServerGameClients, void, CPlayerSlot, const char *, uint64, const char *, const char *, bool> m_OnClientConnected;
 	KHook::Virtual<IServerGameClients, void, CPlayerSlot, char const *, int, uint64> m_ClientPutInServer;

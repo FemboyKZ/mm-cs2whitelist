@@ -51,6 +51,7 @@ std::string GetWhitelistFilePath()
 bool WLManager::LoadFile()
 {
 	m_whitelist.clear();
+	m_fileEntries.clear();
 	m_blacklistCache.clear();
 	m_whitelistCache.clear();
 	m_fileGroupIds.clear();
@@ -157,6 +158,7 @@ bool WLManager::LoadFile()
 		if (!entry.empty())
 		{
 			m_whitelist.insert(entry);
+			m_fileEntries.insert(entry);
 			++count;
 		}
 	}
@@ -196,7 +198,7 @@ bool WLManager::SaveFile()
 		file << "\n";
 	}
 
-	for (const auto &e : m_whitelist)
+	for (const auto &e : m_fileEntries)
 	{
 		file << e << "\n";
 	}
@@ -212,6 +214,7 @@ bool WLManager::AddEntry(const char *entry)
 		return false;
 	}
 
+	m_fileEntries.insert(normalized);
 	bool inserted = m_whitelist.insert(normalized).second;
 	if (inserted && g_WLDatabase.IsConnected())
 	{
@@ -234,6 +237,7 @@ bool WLManager::RemoveEntry(const char *entry)
 		return false;
 	}
 
+	m_fileEntries.erase(normalized);
 	bool erased = m_whitelist.erase(normalized) > 0;
 	if (erased && g_WLDatabase.IsConnected())
 	{
