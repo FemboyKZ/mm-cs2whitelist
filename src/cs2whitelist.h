@@ -91,6 +91,10 @@ public:
 	void AddListener(ICS2WhitelistListener *listener) override;
 	void RemoveListener(ICS2WhitelistListener *listener) override;
 
+	// The final not-whitelisted step, shared by the synchronous check and the async Steam group results.
+	// Listeners can still let the player in, otherwise the kick is logged, cached and carried out.
+	void RejectPlayer(int slot, const char *name);
+
 private:
 	bool m_bLateLoaded = false;
 

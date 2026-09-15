@@ -272,6 +272,7 @@ void CS2WhitelistPlugin::CheckPlayer(int idx, const std::string &name)
 
 	if (g_WLManager.IsBlacklisted(p->xuid))
 	{
+		WLLogKick(pszName, p->xuid, p->ip.c_str(), true);
 		std::string msg = WL_Translate(idx, "You are not whitelisted on this server.");
 		char kickmsg[512];
 		snprintf(kickmsg, sizeof(kickmsg), "[WHITELIST] %s\n", msg.c_str());
@@ -293,7 +294,7 @@ void CS2WhitelistPlugin::CheckPlayer(int idx, const std::string &name)
 	if (g_SteamGroupManager.IsEnabled())
 	{
 		bool pending = false;
-		bool inGroup = g_SteamGroupManager.CheckPlayer(idx, p->xuid, pending);
+		bool inGroup = g_SteamGroupManager.CheckPlayer(idx, p->xuid, name, pending);
 		if (pending)
 		{
 			return; // async check in flight; kick (or allow) will happen from the callback
@@ -303,6 +304,17 @@ void CS2WhitelistPlugin::CheckPlayer(int idx, const std::string &name)
 			g_WLManager.AddToWhitelistCache(p->xuid);
 			return;
 		}
+	}
+
+	RejectPlayer(idx, pszName);
+}
+
+void CS2WhitelistPlugin::RejectPlayer(int idx, const char *pszName)
+{
+	const PlayerInfo *p = g_WLPlayerManager.GetPlayer(idx);
+	if (!p)
+	{
+		return;
 	}
 
 	for (ICS2WhitelistListener *l : m_listeners)
@@ -321,14 +333,13 @@ void CS2WhitelistPlugin::CheckPlayer(int idx, const std::string &name)
 		WLLogKick(pszName, p->xuid, p->ip.c_str(), false);
 		g_WLManager.AddToBlacklistCache(p->xuid);
 
+		CPlayerSlot slot(idx);
 		char kickmsg[512];
 		snprintf(kickmsg, sizeof(kickmsg), "[WHITELIST] %s\n", msg.c_str());
 		g_pEngine->ClientPrintf(slot, kickmsg);
 
 		g_pEngine->DisconnectClient(slot, NETWORK_DISCONNECT_KICKED, msg.c_str());
 	}
-
-	return;
 }
 
 KHook::Return<void> CS2WhitelistPlugin::Hook_ClientDisconnect(IServerGameClients *, CPlayerSlot slot, ENetworkDisconnectionReason reason,

@@ -3,10 +3,9 @@
 #include "mmu/log.h"
 
 #include "common.h"
-#include "lang/translations.h"
+#include "cs2whitelist.h"
 #include "whitelist/whitelist_manager.h"
 
-#include <eiface.h>
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -148,7 +147,7 @@ void SteamGroupManager::StartXmlFetch(uint64_t groupId, int page)
 	MMU_LOG_INFO("SteamGroup: fetching group %llu page %d...\n", (unsigned long long)groupId, page);
 }
 
-bool SteamGroupManager::StartApiFetch(int slot, uint64_t xuid)
+bool SteamGroupManager::StartApiFetch(int slot, uint64_t xuid, const std::string &name)
 {
 	if (m_cfg.apiKey.empty())
 	{
@@ -162,6 +161,7 @@ bool SteamGroupManager::StartApiFetch(int slot, uint64_t xuid)
 
 	PendingPlayer pp;
 	pp.xuid = xuid;
+	pp.name = name;
 	pp.startTime = std::chrono::steady_clock::now();
 	m_pendingApi[slot] = pp;
 
@@ -184,7 +184,7 @@ bool SteamGroupManager::StartApiFetch(int slot, uint64_t xuid)
 	return true;
 }
 
-bool SteamGroupManager::CheckPlayer(int slot, uint64_t xuid, bool &pending)
+bool SteamGroupManager::CheckPlayer(int slot, uint64_t xuid, const std::string &name, bool &pending)
 {
 	pending = false;
 
@@ -211,6 +211,7 @@ bool SteamGroupManager::CheckPlayer(int slot, uint64_t xuid, bool &pending)
 
 			PendingPlayer pp;
 			pp.xuid = xuid;
+			pp.name = name;
 			pp.startTime = std::chrono::steady_clock::now();
 			m_pendingXml[slot] = pp;
 			pending = true;
@@ -225,7 +226,7 @@ bool SteamGroupManager::CheckPlayer(int slot, uint64_t xuid, bool &pending)
 			pending = true;
 			return false;
 		}
-		if (!StartApiFetch(slot, xuid))
+		if (!StartApiFetch(slot, xuid, name))
 		{
 			MMU_LOG_WARN("SteamGroup: StartApiFetch failed for slot=%d xuid=%llu\n", slot, (unsigned long long)xuid);
 			return false; // fail open to kick rather than hang
@@ -265,6 +266,7 @@ void SteamGroupManager::OnApiResponse(int slot, uint64_t xuid, bool ok, const st
 	{
 		return;
 	}
+	const std::string name = it->second.name;
 	m_pendingApi.erase(it);
 
 	const bool inGroup = ok && !body.empty() && body.size() < kMaxBodySize && ParseApiResponse(xuid, body);
@@ -276,7 +278,7 @@ void SteamGroupManager::OnApiResponse(int slot, uint64_t xuid, bool ok, const st
 	}
 	else
 	{
-		KickPlayer(slot);
+		KickPlayer(slot, name);
 	}
 }
 
@@ -311,6 +313,7 @@ void SteamGroupManager::ParseXmlBody(uint64_t groupId, int page, const std::stri
 	static const size_t kCloseLen = 12; // strlen("</steamID64>")
 
 	int count = 0;
+	const size_t sizeBefore = members.size();
 	size_t pos = membersStart;
 	while (true)
 	{
@@ -340,7 +343,9 @@ void SteamGroupManager::ParseXmlBody(uint64_t groupId, int page, const std::stri
 	MMU_LOG_INFO("SteamGroup: group %llu p%d: +%d members (%d total in set)\n", (unsigned long long)groupId, page, count, (int)members.size());
 
 	const int expected = m_expectedCounts.count(groupId) ? m_expectedCounts.at(groupId) : 0;
-	if (expected > 0 && static_cast<int>(members.size()) < expected)
+	// Steam answers a page past the end with an empty member list, and memberCount can exceed the IDs it lists
+	// (members leaving between pages), so a page that adds nobody ends the fetch instead of paging forever.
+	if (expected > 0 && static_cast<int>(members.size()) < expected && members.size() > sizeBefore)
 	{
 		StartXmlFetch(groupId, page + 1);
 	}
@@ -438,7 +443,10 @@ bool SteamGroupManager::AllGroupsFetched() const
 
 void SteamGroupManager::ProcessPendingXmlPlayers()
 {
-	for (auto &[slot, pp] : m_pendingXml)
+	// Swapped out first, a kick runs ClientDisconnect synchronously, which erases from m_pendingXml.
+	std::unordered_map<int, PendingPlayer> pending;
+	pending.swap(m_pendingXml);
+	for (const auto &[slot, pp] : pending)
 	{
 		if (IsXuidInAnyGroup(pp.xuid))
 		{
@@ -446,10 +454,9 @@ void SteamGroupManager::ProcessPendingXmlPlayers()
 		}
 		else
 		{
-			KickPlayer(slot);
+			KickPlayer(slot, pp.name);
 		}
 	}
-	m_pendingXml.clear();
 }
 
 void SteamGroupManager::AllowPlayer(int slot, uint64_t xuid)
@@ -458,18 +465,9 @@ void SteamGroupManager::AllowPlayer(int slot, uint64_t xuid)
 	MMU_LOG_INFO("SteamGroup: slot %d allowed via group membership.\n", slot);
 }
 
-void SteamGroupManager::KickPlayer(int slot)
+void SteamGroupManager::KickPlayer(int slot, const std::string &name)
 {
-	if (!g_pEngine)
-	{
-		return;
-	}
-	std::string msg = WL_Translate(slot, "You are not whitelisted on this server.");
-	CPlayerSlot playerSlot(slot);
-	char kickmsg[512];
-	snprintf(kickmsg, sizeof(kickmsg), "[WHITELIST] %s\n", msg.c_str());
-	g_pEngine->ClientPrintf(playerSlot, kickmsg);
-	g_pEngine->DisconnectClient(playerSlot, NETWORK_DISCONNECT_KICKED, msg.c_str());
+	g_ThisPlugin.RejectPlayer(slot, name.c_str());
 }
 
 void SteamGroupManager::OnGameFrame()
@@ -482,9 +480,10 @@ void SteamGroupManager::OnGameFrame()
 		if (std::chrono::duration<float>(now - it->second.startTime) >= timeout)
 		{
 			const int slot = it->first;
+			const std::string name = it->second.name;
 			it = m_pendingXml.erase(it);
 			MMU_LOG_WARN("SteamGroup: slot %d timed out waiting for XML data.\n", slot);
-			KickPlayer(slot);
+			KickPlayer(slot, name);
 		}
 		else
 		{
@@ -497,10 +496,11 @@ void SteamGroupManager::OnGameFrame()
 		if (std::chrono::duration<float>(now - it->second.startTime) >= timeout)
 		{
 			const int slot = it->first;
+			const std::string name = it->second.name;
 			it = m_pendingApi.erase(it);
 			// The late HTTP response is dropped by OnApiResponse's pending lookup.
 			MMU_LOG_WARN("SteamGroup: slot %d API check timed out.\n", slot);
-			KickPlayer(slot);
+			KickPlayer(slot, name);
 		}
 		else
 		{

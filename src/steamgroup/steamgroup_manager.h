@@ -37,7 +37,7 @@ public:
 	// Check whether this player is whitelisted via a Steam group.
 	//   pending=true  -> async check started; caller MUST NOT kick yet.
 	//   pending=false -> synchronous result; return value is the answer.
-	bool CheckPlayer(int slot, uint64_t xuid, bool &pending);
+	bool CheckPlayer(int slot, uint64_t xuid, const std::string &name, bool &pending);
 
 	// Timeout/cleanup tick - call once per game frame.
 	void OnGameFrame();
@@ -54,6 +54,7 @@ private:
 	struct PendingPlayer
 	{
 		uint64_t xuid;
+		std::string name;
 		std::chrono::steady_clock::time_point startTime;
 	};
 
@@ -80,7 +81,7 @@ private:
 
 	void StartXmlFetches();
 	void StartXmlFetch(uint64_t groupId, int page);
-	bool StartApiFetch(int slot, uint64_t xuid);
+	bool StartApiFetch(int slot, uint64_t xuid, const std::string &name);
 
 	// Main-thread continuations for completed requests.
 	void OnXmlResponse(uint64_t groupId, int page, bool ok, const std::string &body);
@@ -94,7 +95,7 @@ private:
 
 	void ProcessPendingXmlPlayers();
 	void AllowPlayer(int slot, uint64_t xuid);
-	void KickPlayer(int slot);
+	void KickPlayer(int slot, const std::string &name);
 };
 
 extern SteamGroupManager g_SteamGroupManager;
