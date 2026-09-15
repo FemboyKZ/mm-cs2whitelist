@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cstdarg>
 #include <cstdio>
+#include <cstdlib>
 
 std::string NormalizeEntry(const char *input)
 {
@@ -35,6 +36,20 @@ std::string NormalizeEntry(const char *input)
 	if (s.empty() || s[0] == '#')
 	{
 		return {};
+	}
+
+	// [U:1:accountid] -> STEAM_0:Y:Z
+	if (s.size() > 5 && s.front() == '[' && s.back() == ']' && toupper(static_cast<unsigned char>(s[1])) == 'U' && s[2] == ':')
+	{
+		auto colon = s.find(':', 3);
+		if (colon != std::string::npos)
+		{
+			unsigned long account = strtoul(s.c_str() + colon + 1, nullptr, 10);
+			if (account != 0)
+			{
+				return "STEAM_0:" + std::to_string(account & 1) + ":" + std::to_string(account >> 1);
+			}
+		}
 	}
 
 	// STEAM_X:Y:Z -> STEAM_0:Y:Z

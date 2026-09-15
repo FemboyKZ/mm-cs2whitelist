@@ -81,10 +81,37 @@ bool CS2WhitelistPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t ma
 	g_pCVar = g_pICvar;
 	META_CONVAR_REGISTER(FCVAR_RELEASE | FCVAR_GAMEDLL);
 
-	g_WLManager.LoadFile();
+	// core.cfg names the whitelist file, so it is read before the file rather than from AllPluginsLoaded,
+	// which would leave the whitelist empty for anything querying us in between.
+	// Nothing here depends on another plugin.
+	LoadConfigAndFile();
 
 	MMU_LOG_INFO("Plugin loaded (v%s)%s.\n", PLUGIN_FULL_VERSION, late ? " [late]" : "");
 	return true;
+}
+
+void CS2WhitelistPlugin::LoadConfigAndFile()
+{
+	char cfgPath[512];
+	snprintf(cfgPath, sizeof(cfgPath), "%s/cfg/cs2whitelist/core.cfg", g_SMAPI->GetBaseDir());
+
+	if (WL_LoadConfig(cfgPath, g_WLConfig))
+	{
+		cv_enable.Set(g_WLConfig.enable);
+		cv_immunity.Set(g_WLConfig.immunity);
+		cv_filename.Set(CUtlString(g_WLConfig.filename.c_str()));
+		cv_log.Set(g_WLConfig.logMode);
+		MMU_LOG_INFO("Loaded core.cfg.\n");
+	}
+	else
+	{
+		MMU_LOG_WARN("core.cfg not found, using ConVar defaults.\n");
+	}
+
+	WL_LoadTranslations();
+
+	// Reads cv_filename, so it follows the config.
+	g_WLManager.LoadFile();
 }
 
 bool CS2WhitelistPlugin::Unload(char *error, size_t maxlen)
@@ -141,24 +168,6 @@ void CS2WhitelistPlugin::AllPluginsLoaded()
 		MMU_LOG_INFO("mm-cs2admin not loaded. Admin commands restricted to server console.\n");
 	}
 
-	char cfgPath[512];
-	snprintf(cfgPath, sizeof(cfgPath), "%s/cfg/cs2whitelist/core.cfg", g_SMAPI->GetBaseDir());
-
-	if (WL_LoadConfig(cfgPath, g_WLConfig))
-	{
-		cv_enable.Set(g_WLConfig.enable);
-		cv_immunity.Set(g_WLConfig.immunity);
-		cv_filename.Set(CUtlString(g_WLConfig.filename.c_str()));
-		cv_log.Set(g_WLConfig.logMode);
-		MMU_LOG_INFO("Loaded core.cfg.\n");
-	}
-	else
-	{
-		MMU_LOG_WARN("core.cfg not found, using ConVar defaults.\n");
-	}
-
-	WL_LoadTranslations();
-
 	{
 		SteamGroupManager::Config sgCfg;
 		sgCfg.enabled = g_WLConfig.sgEnabled;
@@ -177,7 +186,12 @@ void CS2WhitelistPlugin::AllPluginsLoaded()
 			{
 				if (success)
 				{
-					g_WLDatabase.LoadEntries(g_WLManager.GetSet(), [](int count) { MMU_LOG_INFO("Loaded %d entries from database.\n", count); });
+					g_WLDatabase.LoadEntries(g_WLManager.BeginDbLoad(),
+											 [](int count)
+											 {
+												 g_WLManager.FinishDbLoad();
+												 MMU_LOG_INFO("Loaded %d entries from database.\n", count);
+											 });
 				}
 			});
 	}
@@ -202,7 +216,12 @@ void CS2WhitelistPlugin::OnLevelInit(char const *pMapName, char const *pMapEntit
 
 	if (g_WLDatabase.IsConnected())
 	{
-		g_WLDatabase.LoadEntries(g_WLManager.GetSet(), [](int count) { MMU_LOG_INFO("Merged %d DB entries on map load.\n", count); });
+		g_WLDatabase.LoadEntries(g_WLManager.BeginDbLoad(),
+								 [](int count)
+								 {
+									 g_WLManager.FinishDbLoad();
+									 MMU_LOG_INFO("Merged %d DB entries on map load.\n", count);
+								 });
 	}
 }
 
@@ -291,6 +310,7 @@ void CS2WhitelistPlugin::CheckPlayer(int idx, const std::string &name)
 	}
 
 	// Steam group check (may be async, returns pending=true to defer the kick)
+	bool groupDataMissing = false;
 	if (g_SteamGroupManager.IsEnabled())
 	{
 		bool pending = false;
@@ -304,12 +324,14 @@ void CS2WhitelistPlugin::CheckPlayer(int idx, const std::string &name)
 			g_WLManager.AddToWhitelistCache(p->xuid);
 			return;
 		}
+		// A "not in group" answer off an incomplete member list is not one to hold against the player for the rest of the map.
+		groupDataMissing = g_SteamGroupManager.DataIncomplete();
 	}
 
-	RejectPlayer(idx, pszName);
+	RejectPlayer(idx, pszName, !groupDataMissing);
 }
 
-void CS2WhitelistPlugin::RejectPlayer(int idx, const char *pszName)
+void CS2WhitelistPlugin::RejectPlayer(int idx, const char *pszName, bool cacheReject)
 {
 	const PlayerInfo *p = g_WLPlayerManager.GetPlayer(idx);
 	if (!p)
@@ -331,7 +353,10 @@ void CS2WhitelistPlugin::RejectPlayer(int idx, const char *pszName)
 	if (g_pEngine)
 	{
 		WLLogKick(pszName, p->xuid, p->ip.c_str(), false);
-		g_WLManager.AddToBlacklistCache(p->xuid);
+		if (cacheReject)
+		{
+			g_WLManager.AddToBlacklistCache(p->xuid);
+		}
 
 		CPlayerSlot slot(idx);
 		char kickmsg[512];

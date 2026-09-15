@@ -50,6 +50,12 @@ public:
 		return m_cfg.enabled;
 	}
 
+	// True when the last fetch cycle failed, so a "not in group" answer means missing data rather than a real no.
+	bool DataIncomplete() const
+	{
+		return m_fetchFailed;
+	}
+
 private:
 	struct PendingPlayer
 	{
@@ -78,6 +84,10 @@ private:
 	uint32_t m_generation = 0;
 	// XML fetches currently in flight (drives the deferred-fetch trigger).
 	int m_xmlInFlight = 0;
+	// A group in this cycle answered with an error or an unreadable body, so the member sets are partial.
+	bool m_fetchFailed = false;
+	// Start of the last cycle, so retries after a failure are spread out instead of one per joining player.
+	std::chrono::steady_clock::time_point m_lastFetchStart;
 
 	void StartXmlFetches();
 	void StartXmlFetch(uint64_t groupId, int page);
@@ -95,7 +105,8 @@ private:
 
 	void ProcessPendingXmlPlayers();
 	void AllowPlayer(int slot, uint64_t xuid);
-	void KickPlayer(int slot, const std::string &name);
+	// cacheReject=false for a kick that only reflects missing group data, so a reconnect is checked again.
+	void KickPlayer(int slot, const std::string &name, bool cacheReject);
 };
 
 extern SteamGroupManager g_SteamGroupManager;

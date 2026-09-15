@@ -62,10 +62,10 @@ public:
 		return static_cast<int>(m_whitelistCache.size());
 	}
 
-	std::unordered_set<std::string> &GetSet()
-	{
-		return m_whitelist;
-	}
+	// Target set for a database load. Cleared here, merged by FinishDbLoad.
+	std::unordered_set<std::string> &BeginDbLoad();
+	// Applies the finished load, normalizing rows because other tools write them too.
+	void FinishDbLoad();
 
 	// Group IDs found in the whitelist file
 	const std::vector<uint64_t> &GetFileGroupIds() const
@@ -79,6 +79,10 @@ private:
 	// Only what SaveFile writes back.
 	// Writing m_whitelist would copy every DB entry into the file, where removing it from the DB could no longer revoke it.
 	std::unordered_set<std::string> m_fileEntries;
+	// Rows of the last finished database load, re-applied by LoadFile so a file reload does not drop DB only entries.
+	std::unordered_set<std::string> m_dbEntries;
+	// Where a load in flight accumulates, so the live entries stay untouched until it finishes.
+	std::unordered_set<std::string> m_dbLoading;
 	std::unordered_set<uint64_t> m_blacklistCache;
 	std::unordered_set<uint64_t> m_whitelistCache;
 	std::vector<uint64_t> m_fileGroupIds;

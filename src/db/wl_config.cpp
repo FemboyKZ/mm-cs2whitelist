@@ -79,6 +79,11 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 		if (allDigits)
 		{
 			uint64_t gid = std::strtoull(value.c_str(), nullptr, 10);
+			// Short 32-bit clan ID, promoted to a full group ID64 like the whitelist file and the Steam API response are.
+			if (gid != 0 && (gid >> 32) == 0)
+			{
+				gid = 0x0170000000000000ULL | gid;
+			}
 			if (gid != 0)
 			{
 				cfg->sgGroupIds.push_back(gid);

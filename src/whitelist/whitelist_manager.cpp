@@ -1,9 +1,11 @@
 #include "whitelist_manager.h"
 #include "mmu/log.h"
 #include "player/player_manager.h"
+#include "steamgroup/steamgroup_manager.h"
 #include "utils/utils.h"
 #include "db/wl_database.h"
 
+#include <algorithm>
 #include <eiface.h>
 #include <filesystem>
 #include <fstream>
@@ -48,6 +50,51 @@ std::string GetWhitelistFilePath()
 	return path;
 }
 
+// A line naming a Steam group, written either as GROUP:<id> or as a bare all-digit ID.
+// Short 32-bit clan IDs are promoted to full group ID64s.
+// Returns 0 for anything else. User SteamID64s always start with 76561197, so there is no ambiguity.
+static uint64_t ParseGroupEntry(const std::string &line)
+{
+	const char *numStart = line.c_str();
+	if (line.size() >= 6)
+	{
+		char upper[7] = {};
+		for (int i = 0; i < 6; ++i)
+		{
+			upper[i] = static_cast<char>(line[i] >= 'a' && line[i] <= 'z' ? line[i] - 32 : line[i]);
+		}
+		if (std::memcmp(upper, "GROUP:", 6) == 0)
+		{
+			numStart = line.c_str() + 6;
+		}
+	}
+
+	if (*numStart == '\0')
+	{
+		return 0;
+	}
+	for (const char *p = numStart; *p; ++p)
+	{
+		if (*p < '0' || *p > '9')
+		{
+			return 0;
+		}
+	}
+
+	uint64_t id = std::strtoull(numStart, nullptr, 10);
+	if (id == 0)
+	{
+		return 0;
+	}
+	if ((id >> 32) == 0)
+	{
+		id = 0x0170000000000000ULL | id;
+	}
+
+	// k_EAccountTypeClan
+	return ((id >> 52) & 0xF) == 7 ? id : 0;
+}
+
 bool WLManager::LoadFile()
 {
 	m_whitelist.clear();
@@ -55,6 +102,9 @@ bool WLManager::LoadFile()
 	m_blacklistCache.clear();
 	m_whitelistCache.clear();
 	m_fileGroupIds.clear();
+
+	// Survives a file reload, the database is a separate source.
+	m_whitelist.insert(m_dbEntries.begin(), m_dbEntries.end());
 
 	std::string path = GetWhitelistFilePath();
 	std::ifstream file(path);
@@ -103,55 +153,12 @@ bool WLManager::LoadFile()
 		}
 		trimmed = trimmed.substr(0, last + 1);
 
-		// Detect all-digit group IDs:
-		//   - Full group ID64: (id >> 52) & 0xF == 7  (k_EAccountTypeClan, ~103582791...)
-		//   - Short 32-bit clan ID: fits in uint32, converted via 0x0170000000000000 | id
-		// User SteamID64s always start with 76561197..., so there is no ambiguity.
-		// GROUP:<id> prefix is still accepted for clarity.
+		uint64_t groupId = ParseGroupEntry(trimmed);
+		if (groupId != 0)
 		{
-			const char *numStart = trimmed.c_str();
-			if (trimmed.size() >= 6)
-			{
-				char upper[7] = {};
-				for (int i = 0; i < 6; ++i)
-				{
-					upper[i] = static_cast<char>(trimmed[i] >= 'a' && trimmed[i] <= 'z' ? trimmed[i] - 32 : trimmed[i]);
-				}
-				if (std::memcmp(upper, "GROUP:", 6) == 0)
-				{
-					numStart = trimmed.c_str() + 6;
-				}
-			}
-
-			bool allDigits = (*numStart != '\0');
-			for (const char *p = numStart; *p; ++p)
-			{
-				if (*p < '0' || *p > '9')
-				{
-					allDigits = false;
-					break;
-				}
-			}
-
-			if (allDigits && *numStart != '\0')
-			{
-				uint64_t id = std::strtoull(numStart, nullptr, 10);
-				if (id != 0)
-				{
-					// Short 32-bit clan ID - promote to full group ID64
-					if ((id >> 32) == 0)
-					{
-						id = 0x0170000000000000ULL | id;
-					}
-
-					if (((id >> 52) & 0xF) == 7) // k_EAccountTypeClan
-					{
-						m_fileGroupIds.push_back(id);
-						++groupCount;
-						continue;
-					}
-				}
-			}
+			m_fileGroupIds.push_back(groupId);
+			++groupCount;
+			continue;
 		}
 
 		std::string entry = NormalizeEntry(trimmed.c_str());
@@ -214,6 +221,20 @@ bool WLManager::AddEntry(const char *entry)
 		return false;
 	}
 
+	// A group belongs in the file's group list, not the entry set, and its members only match once they are fetched.
+	uint64_t groupId = ParseGroupEntry(normalized);
+	if (groupId != 0)
+	{
+		if (std::find(m_fileGroupIds.begin(), m_fileGroupIds.end(), groupId) != m_fileGroupIds.end())
+		{
+			return false;
+		}
+		m_fileGroupIds.push_back(groupId);
+		g_SteamGroupManager.FetchGroups();
+		ClearBlacklistCache();
+		return true;
+	}
+
 	m_fileEntries.insert(normalized);
 	bool inserted = m_whitelist.insert(normalized).second;
 	if (inserted && g_WLDatabase.IsConnected())
@@ -237,6 +258,21 @@ bool WLManager::RemoveEntry(const char *entry)
 		return false;
 	}
 
+	uint64_t groupId = ParseGroupEntry(normalized);
+	if (groupId != 0)
+	{
+		auto it = std::find(m_fileGroupIds.begin(), m_fileGroupIds.end(), groupId);
+		if (it == m_fileGroupIds.end())
+		{
+			return false;
+		}
+		m_fileGroupIds.erase(it);
+		g_SteamGroupManager.FetchGroups();
+		// Otherwise members let in by that group stay let in until the map changes.
+		ClearWhitelistCache();
+		return true;
+	}
+
 	m_fileEntries.erase(normalized);
 	bool erased = m_whitelist.erase(normalized) > 0;
 	if (erased && g_WLDatabase.IsConnected())
@@ -249,6 +285,31 @@ bool WLManager::RemoveEntry(const char *entry)
 		ClearWhitelistCache();
 	}
 	return erased;
+}
+
+std::unordered_set<std::string> &WLManager::BeginDbLoad()
+{
+	m_dbLoading.clear();
+	return m_dbLoading;
+}
+
+void WLManager::FinishDbLoad()
+{
+	m_dbEntries.clear();
+	for (const std::string &row : m_dbLoading)
+	{
+		std::string normalized = NormalizeEntry(row.c_str());
+		if (!normalized.empty())
+		{
+			m_dbEntries.insert(std::move(normalized));
+		}
+	}
+	m_dbLoading.clear();
+
+	m_whitelist.insert(m_dbEntries.begin(), m_dbEntries.end());
+
+	// A player kicked before the rows arrived is still in the blacklist cache, which is checked before the whitelist.
+	ClearBlacklistCache();
 }
 
 bool WLManager::IsPlayerWhitelisted(int slot) const

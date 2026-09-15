@@ -32,9 +32,13 @@ CON_COMMAND_F(mm_whitelist_reload, "Reload the whitelist file from disk.", FCVAR
 		g_SteamGroupManager.FetchGroups();
 		if (g_WLDatabase.IsConnected())
 		{
-			g_WLDatabase.LoadEntries(
-				g_WLManager.GetSet(), [slot](int count)
-				{ ReplyToSlotT(slot, "Reloaded %d entries from disk + %d from database.", g_WLManager.GetEntryCount() - count, count); });
+			g_WLDatabase.LoadEntries(g_WLManager.BeginDbLoad(),
+									 [slot](int count)
+									 {
+										 g_WLManager.FinishDbLoad();
+										 ReplyToSlotT(slot, "Reloaded %d entries from disk + %d from database.", g_WLManager.GetEntryCount() - count,
+													  count);
+									 });
 		}
 		else
 		{

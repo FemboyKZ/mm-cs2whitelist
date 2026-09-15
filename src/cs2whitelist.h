@@ -14,6 +14,10 @@ public:
 	CS2WhitelistPlugin();
 
 	bool Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, bool late);
+
+	// Read core.cfg, apply it to the convars, then load the whitelist file it names.
+	void LoadConfigAndFile();
+
 	bool Unload(char *error, size_t maxlen);
 	void AllPluginsLoaded();
 	void *OnMetamodQuery(const char *iface, int *ret);
@@ -93,7 +97,8 @@ public:
 
 	// The final not-whitelisted step, shared by the synchronous check and the async Steam group results.
 	// Listeners can still let the player in, otherwise the kick is logged, cached and carried out.
-	void RejectPlayer(int slot, const char *name);
+	// cacheReject=false kicks without caching, for a rejection that only reflects missing group data.
+	void RejectPlayer(int slot, const char *name, bool cacheReject = true);
 
 private:
 	bool m_bLateLoaded = false;
