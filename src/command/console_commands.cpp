@@ -4,6 +4,7 @@
 #include "db/wl_database.h"
 #include "utils/utils.h"
 #include "interfaces/cs2admin/ics2admin.h"
+#include "mmu/chat_command.h"
 
 #include <tier1/convar.h>
 
@@ -73,13 +74,15 @@ CON_COMMAND_F(mm_whitelist_add,
 		return;
 	}
 
-	if (args.ArgC() < 2)
+	// Not args.Arg(1), the engine tokenizer would cut a SteamID apart at its colons.
+	std::vector<std::string> raw = mmu::SplitArgs(args.ArgS());
+	if (raw.empty())
 	{
 		ReplyToSlotT(slot, "Usage: mm_whitelist_add <steamid|ip>");
 		return;
 	}
 
-	const char *entry = args.Arg(1);
+	const char *entry = raw[0].c_str();
 	if (g_WLManager.AddEntry(entry))
 	{
 		ReplyToSlotT(slot, "Added '%s'. Saving file...", entry);
@@ -102,13 +105,14 @@ CON_COMMAND_F(mm_whitelist_remove,
 		return;
 	}
 
-	if (args.ArgC() < 2)
+	std::vector<std::string> raw = mmu::SplitArgs(args.ArgS());
+	if (raw.empty())
 	{
 		ReplyToSlotT(slot, "Usage: mm_whitelist_remove <steamid|ip>");
 		return;
 	}
 
-	const char *entry = args.Arg(1);
+	const char *entry = raw[0].c_str();
 	if (g_WLManager.RemoveEntry(entry))
 	{
 		ReplyToSlotT(slot, "Removed '%s'. Saving file...", entry);
@@ -131,13 +135,14 @@ CON_COMMAND_F(mm_whitelist_exist,
 		return;
 	}
 
-	if (args.ArgC() < 2)
+	std::vector<std::string> raw = mmu::SplitArgs(args.ArgS());
+	if (raw.empty())
 	{
 		ReplyToSlotT(slot, "Usage: mm_whitelist_exist <steamid|ip>");
 		return;
 	}
 
-	const char *entry = args.Arg(1);
+	const char *entry = raw[0].c_str();
 	if (g_WLManager.IsEntryWhitelisted(entry))
 	{
 		ReplyToSlotT(slot, "'%s' IS in the whitelist.", entry);
