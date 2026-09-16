@@ -61,7 +61,7 @@ bool CS2WhitelistPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t ma
 
 	mmu::log::Init("CS2Whitelist", "cs2whitelist");
 
-	mmu::http::SetUserAgent("CS2Whitelist/1.0");
+	mmu::http::SetUserAgent((std::string("CS2Whitelist/") + PLUGIN_FULL_VERSION).c_str());
 	mmu::http::ResetShutdownLatch();
 
 	MMU_GET_CORE_INTERFACES();
