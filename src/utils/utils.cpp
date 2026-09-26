@@ -2,13 +2,10 @@
 #include "common.h"
 #include "lang/translations.h"
 #include "interfaces/cs2admin/ics2admin.h"
+#include "mmu/str_utils.h"
 
-#include <cctype>
-#include <cstring>
-#include <algorithm>
 #include <cstdarg>
 #include <cstdio>
-#include <cstdlib>
 
 std::string NormalizeEntry(const char *input)
 {
@@ -25,70 +22,15 @@ std::string NormalizeEntry(const char *input)
 		s = s.substr(0, cpos);
 	}
 
-	const char *ws = " \t\r\n";
-	auto first = s.find_first_not_of(ws);
-	if (first == std::string::npos)
-	{
-		return {};
-	}
-	s = s.substr(first, s.find_last_not_of(ws) - first + 1);
-
+	s = str::Trim(s);
 	if (s.empty() || s[0] == '#')
 	{
 		return {};
 	}
 
-	// [U:1:accountid] -> STEAM_0:Y:Z
-	if (s.size() > 5 && s.front() == '[' && s.back() == ']' && toupper(static_cast<unsigned char>(s[1])) == 'U' && s[2] == ':')
-	{
-		auto colon = s.find(':', 3);
-		if (colon != std::string::npos)
-		{
-			unsigned long account = strtoul(s.c_str() + colon + 1, nullptr, 10);
-			if (account != 0)
-			{
-				return "STEAM_0:" + std::to_string(account & 1) + ":" + std::to_string(account >> 1);
-			}
-		}
-	}
-
-	// STEAM_X:Y:Z -> STEAM_0:Y:Z
-	if (s.size() > 6)
-	{
-		char prefix[7] = {};
-		for (int i = 0; i < 6; ++i)
-		{
-			prefix[i] = static_cast<char>(toupper(static_cast<unsigned char>(s[i])));
-		}
-
-		if (memcmp(prefix, "STEAM_", 6) == 0)
-		{
-			auto colon = s.find(':', 6);
-			if (colon != std::string::npos)
-			{
-				return "STEAM_0:" + s.substr(colon + 1);
-			}
-			return s;
-		}
-	}
-
-	// SteamID64: all digits, 15-20 chars
-	bool allDigits = !s.empty();
-	for (char c : s)
-	{
-		if (!isdigit(static_cast<unsigned char>(c)))
-		{
-			allDigits = false;
-			break;
-		}
-	}
-
-	if (allDigits && s.size() >= 15 && s.size() <= 20)
-	{
-		return s;
-	}
-
-	return s;
+	// A SteamID64 stays as typed, bare numbers are also Steam group IDs.
+	std::string authid = SteamID2Or3ToAuthId(s);
+	return authid.empty() ? s : authid;
 }
 
 void ReplyToSlot(int slot, const char *fmt, ...)
