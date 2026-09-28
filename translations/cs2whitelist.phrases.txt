@@ -36,6 +36,14 @@
 	{
 		"en"	"Failed to reload whitelist file (check server log)."
 	}
+	"Unknown key %s=."
+	{
+		"en"	"Unknown key %s=."
+	}
+	"A quote is left open."
+	{
+		"en"	"A quote is left open."
+	}
 	"Usage: mm_whitelist_add <steamid|ip>"
 	{
 		"en"	"Usage: mm_whitelist_add <steamid|ip>"
