@@ -2,7 +2,7 @@
 #include "common.h"
 #include "lang/translations.h"
 #include "interfaces/cs2admin/ics2admin.h"
-#include "mmu/str_utils.h"
+#include "utils/str.h"
 
 #include <cstdarg>
 #include <cstdio>

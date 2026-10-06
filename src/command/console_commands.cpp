@@ -4,7 +4,7 @@
 #include "db/wl_database.h"
 #include "utils/utils.h"
 #include "interfaces/cs2admin/ics2admin.h"
-#include "mmu/command_args.h"
+#include "utils/command_args.h"
 
 #include <tier1/convar.h>
 

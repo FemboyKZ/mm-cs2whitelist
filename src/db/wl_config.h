@@ -1,5 +1,5 @@
 #pragma once
-#include "mmu/config_blocks.h"
+#include "utils/config_blocks.h"
 
 #include <string>
 #include <vector>

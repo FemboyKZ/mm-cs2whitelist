@@ -1,6 +1,6 @@
 #include "steamgroup_manager.h"
-#include "mmu/http_client.h"
-#include "mmu/log.h"
+#include "utils/http_client.h"
+#include "utils/log.h"
 
 #include "common.h"
 #include "cs2whitelist.h"

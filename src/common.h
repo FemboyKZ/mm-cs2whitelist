@@ -1,8 +1,8 @@
 #ifndef _INCLUDE_WL_COMMON_H_
 #define _INCLUDE_WL_COMMON_H_
 
-#include "mmu/admin_access.h"
-#include "mmu/plugin_globals.h"
+#include "interfaces/cs2admin/admin_access.h"
+#include "sdk/plugin_globals.h"
 
 #include <ISmmPlugin.h>
 #include <iserver.h>

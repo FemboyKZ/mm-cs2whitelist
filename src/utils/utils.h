@@ -1,7 +1,7 @@
 #ifndef _INCLUDE_WL_UTILS_H_
 #define _INCLUDE_WL_UTILS_H_
 
-#include "mmu/steam_utils.h"
+#include "utils/steamid.h"
 
 #include <string>
 #include <cstdint>

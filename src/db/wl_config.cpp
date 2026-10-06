@@ -7,9 +7,9 @@
 #include <cstdint>
 #include <stdexcept>
 
-#include "mmu/str_utils.h"
-#include "mmu/kv_parser.h"
-#include "mmu/log.h"
+#include "utils/str.h"
+#include "utils/kv_parser.h"
+#include "utils/log.h"
 
 WLConfig g_WLConfig;
 

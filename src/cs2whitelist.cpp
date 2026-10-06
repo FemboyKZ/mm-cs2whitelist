@@ -11,9 +11,9 @@
 #include "utils/utils.h"
 #include "whitelist/whitelist_manager.h"
 
-#include "mmu/cvarquery.h"
-#include "mmu/http_client.h"
-#include "mmu/log.h"
+#include "game/cvarquery.h"
+#include "utils/http_client.h"
+#include "utils/log.h"
 
 #include <eiface.h>
 #include <engine/igameeventsystem.h>
