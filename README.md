@@ -71,6 +71,12 @@ python3 ../configure.py --enable-optimize
 ambuild
 ```
 
+### Docker
+
+```bash
+docker compose run --rm build
+```
+
 ## Credits
 
 - [ServerWhitelistAdvanced](https://forums.alliedmods.net/showthread.php?p=1830686)
