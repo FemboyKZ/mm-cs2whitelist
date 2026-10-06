@@ -12,9 +12,6 @@ for sdk_target in MMSPlugin.sdk_targets:
     # Include paths
     binary.compiler.cxxincludes += [
         os.path.join(builder.sourcePath, "src"),
-        os.path.join(builder.sourcePath, "vendor", "mm-cs2admin", "src"),
-        os.path.join(builder.sourcePath, "vendor", "mm-cs2admin", "src", "public"),
-        os.path.join(builder.sourcePath, "vendor", "sql_mm", "src", "public"),
     ]
 
     binary.sources += [
