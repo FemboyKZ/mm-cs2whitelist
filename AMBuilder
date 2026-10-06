@@ -24,13 +24,13 @@ for sdk_target in MMSPlugin.sdk_targets:
         "src/utils/utils.cpp",
         "src/db/wl_config.cpp",
         "src/db/wl_database.cpp",
-        "vendor/mm-utils/utils/chat_colors.cpp",
-        "vendor/mm-utils/game/cvarquery.cpp",
-        "vendor/mm-utils/utils/http_client.cpp",
-        "vendor/mm-utils/utils/log.cpp",
-        "vendor/mm-utils/sdk/sigscan.cpp",
-        "vendor/mm-utils/utils/sql.cpp",
-        "vendor/mm-utils/utils/translations.cpp",
+        "mm-utils/utils/chat_colors.cpp",
+        "mm-utils/game/cvarquery.cpp",
+        "mm-utils/utils/http_client.cpp",
+        "mm-utils/utils/log.cpp",
+        "mm-utils/sdk/sigscan.cpp",
+        "mm-utils/utils/sql.cpp",
+        "mm-utils/utils/translations.cpp",
     ]
 
     binary.custom = [
