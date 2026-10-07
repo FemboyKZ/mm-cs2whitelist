@@ -3,7 +3,7 @@
 
 "Phrases"
 {
-	// Kick message shown in the player's console and on the disconnect screen
+	// Kick message, shown in the player's console and on the disconnect screen
 	"You are not whitelisted on this server."
 	{
 		"en"	"You are not whitelisted on this server."
@@ -19,7 +19,17 @@
 		"en"	"mm-cs2admin is not loaded; this command can only be used from the server console."
 	}
 
-	// Commands
+	// Command arguments
+	"Unknown key %s=."
+	{
+		"en"	"Unknown key %s=."
+	}
+	"A quote is left open."
+	{
+		"en"	"A quote is left open."
+	}
+
+	// mm_whitelist_status and mm_whitelist_reload
 	"enabled=%s | entries=%d | wl_cache=%d | bl_cache=%d | file=%s"
 	{
 		"en"	"enabled=%s | entries=%d | wl_cache=%d | bl_cache=%d | file=%s"
@@ -36,14 +46,14 @@
 	{
 		"en"	"Failed to reload whitelist file (check server log)."
 	}
-	"Unknown key %s=."
+
+	// mm_whitelist_list
+	"%d entries:"
 	{
-		"en"	"Unknown key %s=."
+		"en"	"%d entries:"
 	}
-	"A quote is left open."
-	{
-		"en"	"A quote is left open."
-	}
+
+	// mm_whitelist_add
 	"Usage: mm_whitelist_add <steamid|ip>"
 	{
 		"en"	"Usage: mm_whitelist_add <steamid|ip>"
@@ -56,6 +66,8 @@
 	{
 		"en"	"'%s' is already in the whitelist (or is invalid)."
 	}
+
+	// mm_whitelist_remove
 	"Usage: mm_whitelist_remove <steamid|ip>"
 	{
 		"en"	"Usage: mm_whitelist_remove <steamid|ip>"
@@ -68,6 +80,8 @@
 	{
 		"en"	"'%s' was not found in the whitelist."
 	}
+
+	// mm_whitelist_exist
 	"Usage: mm_whitelist_exist <steamid|ip>"
 	{
 		"en"	"Usage: mm_whitelist_exist <steamid|ip>"
@@ -80,12 +94,10 @@
 	{
 		"en"	"'%s' is NOT in the whitelist."
 	}
+
+	// mm_whitelist_cache_clear
 	"Cache cleared."
 	{
 		"en"	"Cache cleared."
-	}
-	"%d entries:"
-	{
-		"en"	"%d entries:"
 	}
 }
