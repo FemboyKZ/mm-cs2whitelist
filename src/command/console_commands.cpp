@@ -57,13 +57,16 @@ CON_COMMAND_F(mm_whitelist_reload, "Reload the whitelist file from disk.", FCVAR
 		g_SteamGroupManager.FetchGroups();
 		if (g_WLDatabase.IsConnected())
 		{
-			g_WLDatabase.LoadEntries(g_WLManager.BeginDbLoad(),
-									 [slot](int count)
-									 {
-										 g_WLManager.FinishDbLoad();
-										 ReplyToSlotT(slot, "Reloaded %d entries from disk + %d from database.", g_WLManager.GetEntryCount() - count,
-													  count);
-									 });
+			g_WLManager.LoadDbEntries(
+				[slot](int count)
+				{
+					if (count < 0)
+					{
+						ReplyToSlotT(slot, "Reloaded %d entries from disk.", g_WLManager.GetEntryCount());
+						return;
+					}
+					ReplyToSlotT(slot, "Reloaded %d entries from disk + %d from database.", g_WLManager.GetEntryCount() - count, count);
+				});
 		}
 		else
 		{
@@ -108,7 +111,6 @@ CON_COMMAND_F(mm_whitelist_add,
 	if (g_WLManager.AddEntry(entry))
 	{
 		ReplyToSlotT(slot, "Added '%s'. Saving file...", entry);
-		g_WLManager.SaveFile();
 	}
 	else
 	{
@@ -137,7 +139,6 @@ CON_COMMAND_F(mm_whitelist_remove,
 	if (g_WLManager.RemoveEntry(entry))
 	{
 		ReplyToSlotT(slot, "Removed '%s'. Saving file...", entry);
-		g_WLManager.SaveFile();
 	}
 	else
 	{

@@ -1,5 +1,6 @@
 #include "wl_database.h"
 #include "utils/log.h"
+#include "utils/steamid.h"
 #include "wl_config.h"
 #include "common.h"
 
@@ -29,6 +30,7 @@ bool WLDatabase::Init(const WLConfig &cfg)
 	m_params = cfg.database.ToConnectParams();
 
 	m_enabled = true;
+	m_startupLoadPending = true;
 	MMU_LOG_INFO("Database initialized (type=%s).\n", m_bMySQL ? "mysql" : "sqlite");
 	return true;
 }
@@ -43,13 +45,25 @@ void WLDatabase::Connect(std::function<void(bool)> callback)
 		}
 		return;
 	}
-	m_conn.Connect(m_params, std::move(callback));
+	m_conn.Connect(m_params,
+				   [this, callback](bool success)
+				   {
+					   if (!success)
+					   {
+						   m_startupLoadPending = false;
+					   }
+					   if (callback)
+					   {
+						   callback(success);
+					   }
+				   });
 }
 
 void WLDatabase::Shutdown()
 {
 	m_conn.Shutdown();
 	m_enabled = false;
+	m_startupLoadPending = false;
 }
 
 void WLDatabase::CreateSchema()
@@ -96,14 +110,11 @@ void WLDatabase::CreateSchema()
 		  });
 }
 
-void WLDatabase::LoadEntries(std::unordered_set<std::string> &outSet, std::function<void(int)> callback)
+void WLDatabase::LoadEntries(std::function<void(bool ok, const std::unordered_set<std::string> &rows)> callback)
 {
 	if (!m_conn.IsConnected())
 	{
-		if (callback)
-		{
-			callback(0);
-		}
+		callback(false, {});
 		return;
 	}
 
@@ -120,15 +131,14 @@ void WLDatabase::LoadEntries(std::unordered_set<std::string> &outSet, std::funct
 	}
 
 	Query(q,
-		  [&outSet, callback](ISQLQuery *query)
+		  [this, callback](ISQLQuery *query)
 		  {
-			  int count = 0;
+			  m_startupLoadPending = false;
+
+			  std::unordered_set<std::string> rows;
 			  if (!query)
 			  {
-				  if (callback)
-				  {
-					  callback(0);
-				  }
+				  callback(false, rows);
 				  return;
 			  }
 
@@ -142,15 +152,11 @@ void WLDatabase::LoadEntries(std::unordered_set<std::string> &outSet, std::funct
 					  const char *authid = res->GetString(0);
 					  if (authid && authid[0])
 					  {
-						  outSet.insert(authid);
-						  ++count;
+						  rows.insert(authid);
 					  }
 				  }
 			  }
-			  if (callback)
-			  {
-				  callback(count);
-			  }
+			  callback(true, rows);
 		  });
 }
 
@@ -184,18 +190,16 @@ void WLDatabase::RemoveEntry(const std::string &authid)
 		return;
 	}
 
-	std::string esc = Escape(authid.c_str());
+	// Rows may hold the SteamID in another form.
+	std::string match = "authid = '" + Escape(authid.c_str()) + "'";
+	if (const uint64_t steamid64 = ParseSteamID64(authid))
+	{
+		match = mmu::sql::AuthMatch("authid", SteamID64ToSuffix(steamid64)) + " OR authid = '" + std::to_string(steamid64) + "'";
+	}
+
 	const char *p = m_prefix.c_str();
 	char q[512];
-
-	if (!m_bMySQL)
-	{
-		snprintf(q, sizeof(q), "DELETE FROM %s_whitelist WHERE authid = '%s'", p, esc.c_str());
-	}
-	else
-	{
-		snprintf(q, sizeof(q), "DELETE FROM `%s_whitelist` WHERE `authid` = '%s'", p, esc.c_str());
-	}
+	snprintf(q, sizeof(q), m_bMySQL ? "DELETE FROM `%s_whitelist` WHERE %s" : "DELETE FROM %s_whitelist WHERE %s", p, match.c_str());
 
 	Query(q, [](ISQLQuery *) {});
 }

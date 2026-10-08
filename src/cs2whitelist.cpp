@@ -6,12 +6,12 @@
 #include "db/wl_database.h"
 #include "interfaces/cs2admin/ics2admin.h"
 #include "lang/translations.h"
-#include "player/player_manager.h"
 #include "steamgroup/steamgroup_manager.h"
 #include "utils/utils.h"
 #include "whitelist/whitelist_manager.h"
 
 #include "game/cvarquery.h"
+#include "game/players.h"
 #include "utils/http_client.h"
 #include "utils/log.h"
 
@@ -32,6 +32,9 @@ IServerGameDLL *g_pServerGameDLL = nullptr;
 ICvar *g_pICvar = nullptr;
 mmu::AdminAccess g_CS2Admin("whitelist");
 IGameEventSystem *g_pGameEventSystem = nullptr;
+
+constexpr double kAuthWaitSeconds = 10.0;
+constexpr double kLateHoldSeconds = 15.0;
 
 std::string WL_SlotLanguage(int slot)
 {
@@ -66,12 +69,26 @@ bool CS2WhitelistPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t ma
 
 	MMU_GET_CORE_INTERFACES();
 
-	m_bLateLoaded = late;
 	m_bSkipLevelInitReload = !late;
 	g_SMAPI->AddListener(this, this);
 
 	// Non fatal, translations fall back to the default language.
 	mmu::cvarquery::Init(g_pEngine);
+
+	if (late)
+	{
+		const double now = Plat_FloatTime();
+		m_lateHoldUntil = now + kLateHoldSeconds;
+		mmu::players::OnLateLoad();
+		for (int slot = 0; slot <= MAXPLAYERS; slot++)
+		{
+			if (mmu::players::Get(slot))
+			{
+				m_authDeadline[slot] = now + kAuthWaitSeconds;
+				mmu::cvarquery::OnClientConnected(slot, false);
+			}
+		}
+	}
 
 	m_OnClientConnected.Add(g_pGameClients);
 	m_ClientPutInServer.Add(g_pGameClients);
@@ -181,17 +198,20 @@ void CS2WhitelistPlugin::AllPluginsLoaded()
 
 	if (g_WLDatabase.Init(g_WLConfig))
 	{
+		// Runs again when a retried connect gets through.
 		g_WLDatabase.Connect(
-			[this](bool success)
+			[](bool success)
 			{
 				if (success)
 				{
-					g_WLDatabase.LoadEntries(g_WLManager.BeginDbLoad(),
-											 [](int count)
-											 {
-												 g_WLManager.FinishDbLoad();
-												 MMU_LOG_INFO("Loaded %d entries from database.\n", count);
-											 });
+					g_WLManager.LoadDbEntries(
+						[](int count)
+						{
+							if (count >= 0)
+							{
+								MMU_LOG_INFO("Loaded %d entries from database.\n", count);
+							}
+						});
 				}
 			});
 	}
@@ -216,12 +236,14 @@ void CS2WhitelistPlugin::OnLevelInit(char const *pMapName, char const *pMapEntit
 
 	if (g_WLDatabase.IsConnected())
 	{
-		g_WLDatabase.LoadEntries(g_WLManager.BeginDbLoad(),
-								 [](int count)
-								 {
-									 g_WLManager.FinishDbLoad();
-									 MMU_LOG_INFO("Merged %d DB entries on map load.\n", count);
-								 });
+		g_WLManager.LoadDbEntries(
+			[](int count)
+			{
+				if (count >= 0)
+				{
+					MMU_LOG_INFO("Merged %d DB entries on map load.\n", count);
+				}
+			});
 	}
 }
 
@@ -245,7 +267,7 @@ void *CS2WhitelistPlugin::OnMetamodQuery(const char *iface, int *ret)
 KHook::Return<void> CS2WhitelistPlugin::Hook_OnClientConnected(IServerGameClients *, CPlayerSlot slot, const char *pszName, uint64 xuid,
 															   const char *pszNetworkID, const char *pszAddress, bool bFakePlayer)
 {
-	g_WLPlayerManager.OnClientConnected(slot.Get(), xuid, pszAddress, bFakePlayer);
+	mmu::players::OnClientConnected(slot.Get(), pszName, xuid, pszAddress, bFakePlayer);
 	mmu::cvarquery::OnClientConnected(slot.Get(), bFakePlayer);
 	return {KHook::Action::Ignore};
 }
@@ -253,21 +275,40 @@ KHook::Return<void> CS2WhitelistPlugin::Hook_OnClientConnected(IServerGameClient
 KHook::Return<void> CS2WhitelistPlugin::Hook_ClientPutInServer(IServerGameClients *, CPlayerSlot slot, char const *pszName, int type, uint64 xuid)
 {
 	int idx = slot.Get();
-	const PlayerInfo *p = g_WLPlayerManager.GetPlayer(idx);
+	mmu::players::OnClientPutInServer(idx);
+	const mmu::Player *p = mmu::players::Get(idx);
 	if (!p || p->fakePlayer)
 	{
 		return {KHook::Action::Ignore};
 	}
 
-	m_pendingChecks.push_back({idx, p->xuid, pszName ? pszName : ""});
+	if (p->authenticated)
+	{
+		QueueCheck(idx);
+	}
+	else
+	{
+		m_authDeadline[idx] = Plat_FloatTime() + kAuthWaitSeconds;
+	}
 	return {KHook::Action::Ignore};
+}
+
+void CS2WhitelistPlugin::QueueCheck(int idx)
+{
+	const mmu::Player *p = mmu::players::Get(idx);
+	if (!p || p->fakePlayer || !p->inGame)
+	{
+		return;
+	}
+	m_authDeadline[idx] = 0.0;
+	m_pendingChecks.push_back({idx, p->steamid64, p->name});
 }
 
 void CS2WhitelistPlugin::CheckPlayer(int idx, const std::string &name)
 {
 	CPlayerSlot slot(idx);
 	const char *pszName = name.c_str();
-	const PlayerInfo *p = g_WLPlayerManager.GetPlayer(idx);
+	const mmu::Player *p = mmu::players::Get(idx);
 	if (!p)
 	{
 		return;
@@ -277,7 +318,7 @@ void CS2WhitelistPlugin::CheckPlayer(int idx, const std::string &name)
 	{
 		return;
 	}
-	if (g_WLManager.IsWhitelistCached(p->xuid))
+	if (g_WLManager.IsWhitelistCached(p->steamid64))
 	{
 		return;
 	}
@@ -285,13 +326,13 @@ void CS2WhitelistPlugin::CheckPlayer(int idx, const std::string &name)
 	if (cv_immunity.Get() && g_CS2Admin.IsAdmin(idx))
 	{
 		MMU_LOG_INFO("Slot %d (%s) has admin immunity.\n", idx, pszName ? pszName : "?");
-		g_WLManager.AddToWhitelistCache(p->xuid);
+		g_WLManager.AddToWhitelistCache(p->steamid64);
 		return;
 	}
 
-	if (g_WLManager.IsBlacklisted(p->xuid))
+	if (g_WLManager.IsBlacklisted(p->steamid64))
 	{
-		WLLogKick(pszName, p->xuid, p->ip.c_str(), true);
+		WLLogKick(pszName, p->steamid64, p->ip.c_str(), true);
 		std::string msg = WL_Translate(idx, "You are not whitelisted on this server.");
 		char kickmsg[512];
 		snprintf(kickmsg, sizeof(kickmsg), "[WHITELIST] %s\n", msg.c_str());
@@ -305,7 +346,7 @@ void CS2WhitelistPlugin::CheckPlayer(int idx, const std::string &name)
 
 	if (g_WLManager.IsPlayerWhitelisted(idx))
 	{
-		g_WLManager.AddToWhitelistCache(p->xuid);
+		g_WLManager.AddToWhitelistCache(p->steamid64);
 		return;
 	}
 
@@ -314,14 +355,14 @@ void CS2WhitelistPlugin::CheckPlayer(int idx, const std::string &name)
 	if (g_SteamGroupManager.IsEnabled())
 	{
 		bool pending = false;
-		bool inGroup = g_SteamGroupManager.CheckPlayer(idx, p->xuid, name, pending);
+		bool inGroup = g_SteamGroupManager.CheckPlayer(idx, p->steamid64, name, pending);
 		if (pending)
 		{
 			return; // async check in flight; kick (or allow) will happen from the callback
 		}
 		if (inGroup)
 		{
-			g_WLManager.AddToWhitelistCache(p->xuid);
+			g_WLManager.AddToWhitelistCache(p->steamid64);
 			return;
 		}
 		// A "not in group" answer off an incomplete member list is not one to hold against the player for the rest of the map.
@@ -333,7 +374,7 @@ void CS2WhitelistPlugin::CheckPlayer(int idx, const std::string &name)
 
 void CS2WhitelistPlugin::RejectPlayer(int idx, const char *pszName, bool cacheReject)
 {
-	const PlayerInfo *p = g_WLPlayerManager.GetPlayer(idx);
+	const mmu::Player *p = mmu::players::Get(idx);
 	if (!p)
 	{
 		return;
@@ -343,7 +384,7 @@ void CS2WhitelistPlugin::RejectPlayer(int idx, const char *pszName, bool cacheRe
 	{
 		if (l->OnWhitelistKickPre(idx) == WLKickResult::Block)
 		{
-			g_WLManager.AddToWhitelistCache(p->xuid);
+			g_WLManager.AddToWhitelistCache(p->steamid64);
 			return;
 		}
 	}
@@ -352,10 +393,10 @@ void CS2WhitelistPlugin::RejectPlayer(int idx, const char *pszName, bool cacheRe
 
 	if (g_pEngine)
 	{
-		WLLogKick(pszName, p->xuid, p->ip.c_str(), false);
+		WLLogKick(pszName, p->steamid64, p->ip.c_str(), false);
 		if (cacheReject)
 		{
-			g_WLManager.AddToBlacklistCache(p->xuid);
+			g_WLManager.AddToBlacklistCache(p->steamid64);
 		}
 
 		CPlayerSlot slot(idx);
@@ -372,7 +413,11 @@ KHook::Return<void> CS2WhitelistPlugin::Hook_ClientDisconnect(IServerGameClients
 {
 	const int idx = slot.Get();
 	g_SteamGroupManager.OnPlayerDisconnect(idx);
-	g_WLPlayerManager.OnClientDisconnect(idx);
+	mmu::players::OnClientDisconnect(idx);
+	if (idx >= 0 && idx <= MAXPLAYERS)
+	{
+		m_authDeadline[idx] = 0.0;
+	}
 	mmu::cvarquery::OnClientDisconnect(idx);
 	return {KHook::Action::Ignore};
 }
@@ -383,6 +428,9 @@ KHook::Return<void> CS2WhitelistPlugin::Hook_GameFrame(IServerGameDLL *, bool si
 	mmu::http::DrainMainThread();
 	g_SteamGroupManager.OnGameFrame();
 
+	const double now = Plat_FloatTime();
+	g_WLDatabase.RunFrame(now);
+
 	if (!m_pendingChecks.empty())
 	{
 		// Swapped out first, a kick below re-enters the client hooks.
@@ -391,11 +439,27 @@ KHook::Return<void> CS2WhitelistPlugin::Hook_GameFrame(IServerGameDLL *, bool si
 		for (const PendingCheck &check : checks)
 		{
 			// The slot may have emptied or been reused since it was queued.
-			const PlayerInfo *p = g_WLPlayerManager.GetPlayer(check.slot);
-			if (p && !p->fakePlayer && p->xuid == check.xuid)
+			const mmu::Player *p = mmu::players::Get(check.slot);
+			if (p && !p->fakePlayer && p->steamid64 == check.xuid)
 			{
 				CheckPlayer(check.slot, check.name);
 			}
+		}
+	}
+
+	if (now < m_lateHoldUntil && g_WLDatabase.StartupLoadPending())
+	{
+		return {KHook::Action::Ignore};
+	}
+
+	// After the checks: one queued here runs next frame, once mm-cs2admin has seen the same confirmation.
+	mmu::players::RunFrame([this](int slot) { QueueCheck(slot); });
+	for (int slot = 0; slot <= MAXPLAYERS; slot++)
+	{
+		if (m_authDeadline[slot] > 0.0 && now >= m_authDeadline[slot])
+		{
+			m_authDeadline[slot] = 0.0;
+			QueueCheck(slot);
 		}
 	}
 	return {KHook::Action::Ignore};
@@ -403,7 +467,24 @@ KHook::Return<void> CS2WhitelistPlugin::Hook_GameFrame(IServerGameDLL *, bool si
 
 bool CS2WhitelistPlugin::IsPlayerWhitelisted(int slot) const
 {
-	return g_WLManager.IsPlayerWhitelisted(slot);
+	const mmu::Player *p = mmu::players::Get(slot);
+	if (!cv_enable.Get() || !p || p->fakePlayer)
+	{
+		return true;
+	}
+	if (g_WLManager.IsWhitelistCached(p->steamid64))
+	{
+		return true;
+	}
+	if (g_WLManager.IsBlacklisted(p->steamid64))
+	{
+		return false;
+	}
+	if (cv_immunity.Get() && g_CS2Admin.IsAdmin(slot))
+	{
+		return true;
+	}
+	return g_WLManager.IsPlayerWhitelisted(slot) || g_SteamGroupManager.IsXuidInAnyGroup(p->steamid64);
 }
 
 bool CS2WhitelistPlugin::IsEntryWhitelisted(const char *entry) const
@@ -418,8 +499,8 @@ int CS2WhitelistPlugin::GetEntryCount() const
 
 bool CS2WhitelistPlugin::IsPlayerWhitelistCached(int slot) const
 {
-	const PlayerInfo *p = g_WLPlayerManager.GetPlayer(slot);
-	return p && g_WLManager.IsWhitelistCached(p->xuid);
+	const mmu::Player *p = mmu::players::Get(slot);
+	return p && g_WLManager.IsWhitelistCached(p->steamid64);
 }
 
 int CS2WhitelistPlugin::GetWhitelistCacheCount() const
@@ -429,8 +510,8 @@ int CS2WhitelistPlugin::GetWhitelistCacheCount() const
 
 bool CS2WhitelistPlugin::IsPlayerBlacklisted(int slot) const
 {
-	const PlayerInfo *p = g_WLPlayerManager.GetPlayer(slot);
-	return p && g_WLManager.IsBlacklisted(p->xuid);
+	const mmu::Player *p = mmu::players::Get(slot);
+	return p && g_WLManager.IsBlacklisted(p->steamid64);
 }
 
 int CS2WhitelistPlugin::GetBlacklistCacheCount() const
@@ -445,22 +526,12 @@ bool CS2WhitelistPlugin::ReloadFile()
 
 bool CS2WhitelistPlugin::AddEntry(const char *entry)
 {
-	bool ok = g_WLManager.AddEntry(entry);
-	if (ok)
-	{
-		g_WLManager.SaveFile();
-	}
-	return ok;
+	return g_WLManager.AddEntry(entry);
 }
 
 bool CS2WhitelistPlugin::RemoveEntry(const char *entry)
 {
-	bool ok = g_WLManager.RemoveEntry(entry);
-	if (ok)
-	{
-		g_WLManager.SaveFile();
-	}
-	return ok;
+	return g_WLManager.RemoveEntry(entry);
 }
 
 void CS2WhitelistPlugin::AddListener(ICS2WhitelistListener *listener)

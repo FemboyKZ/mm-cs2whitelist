@@ -56,6 +56,9 @@ public:
 		return m_fetchFailed;
 	}
 
+	// By the member lists as last fetched, XML method only.
+	bool IsXuidInAnyGroup(uint64_t xuid) const;
+
 private:
 	struct PendingPlayer
 	{
@@ -65,7 +68,12 @@ private:
 	};
 
 	// XML member sets: groupId64 -> set of member steamid64s
+	// Kept until a fetch replaces it whole, a failed one must not turn every member away.
 	std::unordered_map<uint64_t, std::unordered_set<uint64_t>> m_memberSets;
+	// Where the cycle in flight collects a group's pages.
+	std::unordered_map<uint64_t, std::unordered_set<uint64_t>> m_fetching;
+	// Players the API last said yes for, let in on that while it does not answer.
+	std::unordered_set<uint64_t> m_apiMembers;
 	// Expected total member count per group (read from first XML page)
 	std::unordered_map<uint64_t, int> m_expectedCounts;
 	// Groups whose XML fetch is complete
@@ -84,7 +92,7 @@ private:
 	uint32_t m_generation = 0;
 	// XML fetches currently in flight (drives the deferred-fetch trigger).
 	int m_xmlInFlight = 0;
-	// A group in this cycle answered with an error or an unreadable body, so the member sets are partial.
+	// A group in this cycle answered with an error or an unreadable body, so its member set is an older one or missing.
 	bool m_fetchFailed = false;
 	// Start of the last cycle, so retries after a failure are spread out instead of one per joining player.
 	std::chrono::steady_clock::time_point m_lastFetchStart;
@@ -100,10 +108,10 @@ private:
 	void ParseXmlBody(uint64_t groupId, int page, const std::string &body);
 	bool ParseApiResponse(uint64_t xuid, const std::string &body) const;
 
-	bool IsXuidInAnyGroup(uint64_t xuid) const;
 	bool AllGroupsFetched() const;
 
 	void ProcessPendingXmlPlayers();
+	void DecideUnanswered(int slot, uint64_t xuid, const std::string &name);
 	void AllowPlayer(int slot, uint64_t xuid);
 	// cacheReject=false for a kick that only reflects missing group data, so a reconnect is checked again.
 	void KickPlayer(int slot, const std::string &name, bool cacheReject);

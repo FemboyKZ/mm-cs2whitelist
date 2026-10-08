@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <iterator>
 
 SteamGroupManager g_SteamGroupManager;
 
@@ -59,6 +60,8 @@ void SteamGroupManager::Shutdown()
 	m_pendingXml.clear();
 	m_pendingApi.clear();
 	m_memberSets.clear();
+	m_fetching.clear();
+	m_apiMembers.clear();
 	m_fetchedGroups.clear();
 	m_expectedCounts.clear();
 	m_fetchFailed = false;
@@ -72,6 +75,7 @@ void SteamGroupManager::FetchGroups()
 	}
 
 	{
+		const std::vector<uint64_t> before = m_effectiveGroupIds;
 		std::unordered_set<uint64_t> seen;
 		m_effectiveGroupIds.clear();
 		for (uint64_t gid : m_cfg.groupIds)
@@ -87,6 +91,17 @@ void SteamGroupManager::FetchGroups()
 			{
 				m_effectiveGroupIds.push_back(gid);
 			}
+		}
+
+		// A group no longer asked for loses its list.
+		for (auto it = m_memberSets.begin(); it != m_memberSets.end();)
+		{
+			it = seen.count(it->first) ? std::next(it) : m_memberSets.erase(it);
+		}
+		// Which group a remembered yes was for is not kept, so any change drops them all.
+		if (m_effectiveGroupIds != before)
+		{
+			m_apiMembers.clear();
 		}
 	}
 
@@ -110,7 +125,7 @@ void SteamGroupManager::StartXmlFetches()
 	m_generation++;
 	m_xmlInFlight = 0;
 
-	m_memberSets.clear();
+	m_fetching.clear();
 	m_fetchedGroups.clear();
 	m_expectedCounts.clear();
 	m_fetchFailed = false;
@@ -263,6 +278,7 @@ void SteamGroupManager::OnXmlResponse(uint64_t groupId, int page, bool ok, const
 	MMU_LOG_WARN("SteamGroup: XML fetch failed for group %llu p%d\n", (unsigned long long)groupId, page);
 	// Marked done so pending players aren't stuck forever, but flagged so the next joiner can retry the cycle.
 	m_fetchFailed = true;
+	m_fetching.erase(groupId);
 	m_fetchedGroups.insert(groupId);
 	if (AllGroupsFetched())
 	{
@@ -284,21 +300,42 @@ void SteamGroupManager::OnApiResponse(int slot, uint64_t xuid, bool ok, const st
 	const bool answered = ok && !body.empty() && body.size() < kMaxBodySize;
 	const bool inGroup = answered && ParseApiResponse(xuid, body);
 	MMU_LOG_INFO("SteamGroup: API response for slot=%d xuid=%llu: %s (body_len=%u)\n", slot, (unsigned long long)xuid,
-				 inGroup ? "IN GROUP" : "NOT IN GROUP", (unsigned)body.size());
+				 inGroup    ? "IN GROUP"
+				 : answered ? "NOT IN GROUP"
+							: "NO ANSWER",
+				 (unsigned)body.size());
 	if (inGroup)
+	{
+		m_apiMembers.insert(xuid);
+		AllowPlayer(slot, xuid);
+	}
+	else if (answered)
+	{
+		m_apiMembers.erase(xuid);
+		KickPlayer(slot, name, true);
+	}
+	else
+	{
+		DecideUnanswered(slot, xuid, name);
+	}
+}
+
+void SteamGroupManager::DecideUnanswered(int slot, uint64_t xuid, const std::string &name)
+{
+	if (m_apiMembers.count(xuid))
 	{
 		AllowPlayer(slot, xuid);
 	}
 	else
 	{
 		// Only a reply Steam actually gave us is a real no.
-		KickPlayer(slot, name, answered);
+		KickPlayer(slot, name, false);
 	}
 }
 
 void SteamGroupManager::ParseXmlBody(uint64_t groupId, int page, const std::string &body)
 {
-	auto &members = m_memberSets[groupId];
+	auto &members = m_fetching[groupId];
 
 	// First page: read expected member count
 	if (page == 1)
@@ -315,6 +352,7 @@ void SteamGroupManager::ParseXmlBody(uint64_t groupId, int page, const std::stri
 	{
 		// Steam sends the block even for a page past the end, so its absence means the reply was not the member list.
 		m_fetchFailed = true;
+		m_fetching.erase(groupId);
 		m_fetchedGroups.insert(groupId);
 		if (AllGroupsFetched())
 		{
@@ -369,6 +407,9 @@ void SteamGroupManager::ParseXmlBody(uint64_t groupId, int page, const std::stri
 	{
 		m_fetchedGroups.insert(groupId);
 		MMU_LOG_INFO("SteamGroup: group %llu complete (%d members).\n", (unsigned long long)groupId, static_cast<int>(members.size()));
+		// `members` dangles from here on.
+		m_memberSets[groupId] = std::move(members);
+		m_fetching.erase(groupId);
 		if (AllGroupsFetched())
 		{
 			MMU_LOG_INFO("SteamGroup: all groups fetched.\n");
@@ -496,11 +537,18 @@ void SteamGroupManager::OnGameFrame()
 		if (std::chrono::duration<float>(now - it->second.startTime) >= timeout)
 		{
 			const int slot = it->first;
-			const std::string name = it->second.name;
+			const PendingPlayer player = it->second;
 			it = m_pendingXml.erase(it);
 			MMU_LOG_WARN("SteamGroup: slot %d timed out waiting for XML data.\n", slot);
-			// No data means no verdict, so nothing to hold against the player on their next connect.
-			KickPlayer(slot, name, false);
+			if (IsXuidInAnyGroup(player.xuid))
+			{
+				AllowPlayer(slot, player.xuid);
+			}
+			else
+			{
+				// No data means no verdict, so nothing to hold against the player on their next connect.
+				KickPlayer(slot, player.name, false);
+			}
 		}
 		else
 		{
@@ -513,11 +561,11 @@ void SteamGroupManager::OnGameFrame()
 		if (std::chrono::duration<float>(now - it->second.startTime) >= timeout)
 		{
 			const int slot = it->first;
-			const std::string name = it->second.name;
+			const PendingPlayer player = it->second;
 			it = m_pendingApi.erase(it);
 			// The late HTTP response is dropped by OnApiResponse's pending lookup.
 			MMU_LOG_WARN("SteamGroup: slot %d API check timed out.\n", slot);
-			KickPlayer(slot, name, false);
+			DecideUnanswered(slot, player.xuid, player.name);
 		}
 		else
 		{

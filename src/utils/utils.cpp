@@ -28,9 +28,25 @@ std::string NormalizeEntry(const char *input)
 		return {};
 	}
 
-	// A SteamID64 stays as typed, bare numbers are also Steam group IDs.
-	std::string authid = SteamID2Or3ToAuthId(s);
-	return authid.empty() ? s : authid;
+	// Upper half of every player's SteamID64. Any other would come out as some other player's STEAM_0 form.
+	constexpr uint64_t kPlayerIdHigh = 0x01100001;
+	const uint64_t steamid64 = ParseSteamID64(s);
+	if (steamid64 != 0)
+	{
+		return (steamid64 >> 32) == kPlayerIdHigh ? SteamID64ToAuthId(steamid64) : std::string();
+	}
+
+	unsigned int octets[4];
+	int end = 0;
+	if (sscanf(s.c_str(), "%3u.%3u.%3u.%3u%n", &octets[0], &octets[1], &octets[2], &octets[3], &end) != 4 || end != static_cast<int>(s.size())
+		|| octets[0] > 255 || octets[1] > 255 || octets[2] > 255 || octets[3] > 255)
+	{
+		return {};
+	}
+	// Written back out, a leading zero would never match a player's address.
+	char ip[16];
+	snprintf(ip, sizeof(ip), "%u.%u.%u.%u", octets[0], octets[1], octets[2], octets[3]);
+	return ip;
 }
 
 void ReplyToSlot(int slot, const char *fmt, ...)

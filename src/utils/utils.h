@@ -7,8 +7,8 @@
 #include <cstdint>
 #include <cstdarg>
 
-// Normalise a raw whitelist line or command argument to a canonical form.
-// Returns an empty string if the input is blank or a comment.
+// A whitelist line or command argument in the one form entries are kept in:
+// STEAM_0:Y:Z for a SteamID however it was written, the dotted quad for an IPv4 address. Empty for anything else.
 std::string NormalizeEntry(const char *input);
 
 // Printf-style reply to a player slot or the server console (slot < 0).

@@ -2,6 +2,7 @@
 #define _INCLUDE_WL_WHITELIST_MANAGER_H_
 
 #include "common.h"
+#include <functional>
 #include <string>
 #include <vector>
 #include <unordered_set>
@@ -17,7 +18,7 @@ extern CConVar<int> cv_log;
 // Build the absolute path to the active whitelist file.
 std::string GetWhitelistFilePath();
 
-// Log a kick to the server console and (if cv_log > 0) to the daily log file.
+// Log a kick, if cv_log > 0.
 // cv_log == 1: always  cv_log == 2: only first time per player per map.
 // Pass alreadyCached=true when the player was already in the blacklist cache.
 void WLLogKick(const char *name, uint64_t xuid, const char *ip, bool alreadyCached);
@@ -26,8 +27,8 @@ class WLManager
 {
 public:
 	bool LoadFile();
-	bool SaveFile();
 
+	// Both write the change to the file, and to the database when it is connected.
 	bool AddEntry(const char *entry);
 	bool RemoveEntry(const char *entry);
 
@@ -62,10 +63,8 @@ public:
 		return static_cast<int>(m_whitelistCache.size());
 	}
 
-	// Target set for a database load. Cleared here, merged by FinishDbLoad.
-	std::unordered_set<std::string> &BeginDbLoad();
-	// Applies the finished load, normalizing rows because other tools write them too.
-	void FinishDbLoad();
+	// `done` hears how many there are, or -1 when they could not be read and the last load's stay.
+	void LoadDbEntries(std::function<void(int count)> done);
 
 	// Group IDs found in the whitelist file
 	const std::vector<uint64_t> &GetFileGroupIds() const
@@ -74,15 +73,15 @@ public:
 	}
 
 private:
+	// Normalizes the rows, other tools write them too.
+	void SetDbEntries(const std::unordered_set<std::string> &rows);
+
 	// Everything that grants access, the file's entries plus whatever the DB merged in.
 	std::unordered_set<std::string> m_whitelist;
-	// Only what SaveFile writes back.
-	// Writing m_whitelist would copy every DB entry into the file, where removing it from the DB could no longer revoke it.
+	// The file's own, kept apart so a database load can replace the database's and leave these.
 	std::unordered_set<std::string> m_fileEntries;
 	// Rows of the last finished database load, re-applied by LoadFile so a file reload does not drop DB only entries.
 	std::unordered_set<std::string> m_dbEntries;
-	// Where a load in flight accumulates, so the live entries stay untouched until it finishes.
-	std::unordered_set<std::string> m_dbLoading;
 	std::unordered_set<uint64_t> m_blacklistCache;
 	std::unordered_set<uint64_t> m_whitelistCache;
 	std::vector<uint64_t> m_fileGroupIds;

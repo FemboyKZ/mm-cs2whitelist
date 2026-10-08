@@ -101,7 +101,8 @@ public:
 	void RejectPlayer(int slot, const char *name, bool cacheReject = true);
 
 private:
-	bool m_bLateLoaded = false;
+	// After a late load, how long checks wait for the database's entries: players listed only there would be kicked.
+	double m_lateHoldUntil = 0.0;
 
 	// On a normal load the startup path already loads the file,
 	// fetches groups and reads the DB, and the first level init lands right on top of it.
@@ -120,10 +121,15 @@ private:
 		std::string name;
 	};
 
-	// Decided on the GameFrame after ClientPutInServer rather than inside it.
-	// mm-cs2admin assigns admin flags in its own ClientPutInServer hook,
-	// and which plugin's hook runs first follows load order, which nothing enforces.
+	// Decided a GameFrame after the player is put in server and confirmed by Steam.
+	// mm-cs2admin assigns admin flags on the same events, and hook order between plugins is not enforced.
 	std::vector<PendingCheck> m_pendingChecks;
+
+	// A no-op until the player is in game.
+	void QueueCheck(int slot);
+
+	// When an unconfirmed player is checked anyway, 0 for none. Steam being unreachable must not stop the checks.
+	double m_authDeadline[MAXPLAYERS + 1] = {};
 
 	KHook::Virtual<IServerGameClients, void, CPlayerSlot, const char *, uint64, const char *, const char *, bool> m_OnClientConnected;
 	KHook::Virtual<IServerGameClients, void, CPlayerSlot, char const *, int, uint64> m_ClientPutInServer;

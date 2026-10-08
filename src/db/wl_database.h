@@ -30,13 +30,24 @@ public:
 		return m_enabled;
 	}
 
-	// Asynchronously merge all rows from the DB into outSet.
-	// Callback receives the number of entries loaded.
-	void LoadEntries(std::unordered_set<std::string> &outSet, std::function<void(int)> callback);
+	// Asynchronously read every row. `ok` false means they could not be read, not that there are none.
+	void LoadEntries(std::function<void(bool ok, const std::unordered_set<std::string> &rows)> callback);
 
 	// persist an add/remove to the DB.
 	void AddEntry(const std::string &authid);
 	void RemoveEntry(const std::string &authid);
+
+	// Call every frame to have a failed connect retried.
+	void RunFrame(double now)
+	{
+		m_conn.RunFrame(now);
+	}
+
+	// From a successful Init until the first LoadEntries has answered or the connect has failed.
+	bool StartupLoadPending() const
+	{
+		return m_startupLoadPending;
+	}
 
 private:
 	// Create schema tables if they don't exist.
@@ -58,6 +69,7 @@ private:
 
 	bool m_enabled = false;
 	bool m_bMySQL = false;
+	bool m_startupLoadPending = false;
 	std::string m_prefix;
 };
 

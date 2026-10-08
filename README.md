@@ -4,7 +4,7 @@
 
 Metamod: Source plugin for CS2 server whitelisting.
 
-Restricts server access to a list of Steam Group memebers, SteamIDs and IP addresses defined in a text file or in a database.
+Restricts server access to a list of Steam Group members, SteamIDs and IP addresses defined in a text file or in a database.
 
 ## Usage
 
@@ -22,7 +22,7 @@ Restricts server access to a list of Steam Group memebers, SteamIDs and IP addre
 2. Download the [latest release](https://github.com/FemboyKZ/mm-cs2whitelist/releases/latest) and extract it in your server's root folder (`~/game/csgo/`)
 3. Configure the core config file in `/cfg/cs2whitelist/core.cfg`.
 4. Create a new file or rename the .example to `whitelist.txt` and add your selection of user's IDs/IPs to the file.
-    (Alternatively) Configure your whitelist via the commands, or by directly modifying the database.
+   (Alternatively) Configure your whitelist via the commands, or by directly modifying the database.
 
 ### Configuration
 
@@ -30,22 +30,22 @@ Restricts server access to a list of Steam Group memebers, SteamIDs and IP addre
 
 Supported entry types:
 
-| Format | Example |
-| --- | --- |
-| Steam2 SteamID | `STEAM_0:1:12345678` |
-| SteamID64 | `76561198012345678` |
-| IPv4 address | `192.168.1.100` |
+| Format           | Example              |
+| ---------------- | -------------------- |
+| Steam2 SteamID   | `STEAM_0:1:12345678` |
+| SteamID64        | `76561198012345678`  |
+| IPv4 address     | `192.168.1.100`      |
 | Steam group ID64 | `103582791429521408` |
-| Steam group ID32 | `42850207` |
+| Steam group ID32 | `42850207`           |
 
 ### ConVars
 
-| ConVar | Default | Description |
-| --- | --- | --- |
-| `mm_whitelist_enable` | `1` | Enable (1) or disable (0) the whitelist. |
-| `mm_whitelist_immunity` | `1` | Skip the check for players with any cs2admin flag. |
-| `mm_whitelist_filename` | `whitelist.txt` | File name inside `cfg/cs2whitelist/`. |
-| `mm_whitelist_log` | `0` | Log failed join attempts. `0` = off, `1` = always, `2` = once per player per map. Logs to console and `addons/cs2whitelist/logs/YYYY-MM-DD.log`. |
+| ConVar                  | Default         | Description                                                                                                                                                                         |
+| ----------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mm_whitelist_enable`   | `1`             | Enable (1) or disable (0) the whitelist.                                                                                                                                            |
+| `mm_whitelist_immunity` | `1`             | Skip the check for players with any cs2admin flag.                                                                                                                                  |
+| `mm_whitelist_filename` | `whitelist.txt` | File name inside `cfg/cs2whitelist/`.                                                                                                                                               |
+| `mm_whitelist_log`      | `0`             | Log failed join attempts. `0` = off, `1` = always, `2` = once per player per map. Logs to console and, with `LogToFile` on, `addons/cs2whitelist/logs/cs2whitelist_YYYY-MM-DD.log`. |
 
 ### Admin commands
 

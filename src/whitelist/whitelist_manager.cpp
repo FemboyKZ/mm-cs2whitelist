@@ -1,6 +1,7 @@
 #include "whitelist_manager.h"
 #include "utils/log.h"
-#include "player/player_manager.h"
+#include "utils/str.h"
+#include "game/players.h"
 #include "steamgroup/steamgroup_manager.h"
 #include "utils/utils.h"
 #include "db/wl_database.h"
@@ -9,7 +10,6 @@
 #include <eiface.h>
 #include <filesystem>
 #include <fstream>
-#include <ctime>
 #include <cctype>
 #include <cstring>
 #include <stdexcept>
@@ -27,7 +27,7 @@ CConVar<CUtlString> cv_filename("mm_whitelist_filename", FCVAR_RELEASE | FCVAR_G
 								"whitelist.txt");
 
 CConVar<int> cv_log("mm_whitelist_log", FCVAR_RELEASE | FCVAR_GAMEDLL,
-					"Log failed join attempts to console and daily log file. "
+					"Log failed join attempts to the plugin's log. "
 					"0=off  1=always  2=once per player per map.",
 					0, true, 0, true, 2);
 
@@ -95,6 +95,100 @@ static uint64_t ParseGroupEntry(const std::string &line)
 	return ((id >> 52) & 0xF) == 7 ? id : 0;
 }
 
+enum class LineKind
+{
+	Blank,
+	Group,
+	Entry,
+	Invalid,
+};
+
+static LineKind ParseLine(const std::string &line, uint64_t &groupId, std::string &entry)
+{
+	const std::string text = str::Trim(line.substr(0, (std::min)(line.find_first_of(";#"), line.find("//"))));
+	if (text.empty())
+	{
+		return LineKind::Blank;
+	}
+	groupId = ParseGroupEntry(text);
+	if (groupId != 0)
+	{
+		return LineKind::Group;
+	}
+	entry = NormalizeEntry(text.c_str());
+	return entry.empty() ? LineKind::Invalid : LineKind::Entry;
+}
+
+// Appended, so the lines already there keep their comments and order.
+static bool AppendLine(const std::string &text)
+{
+	const std::string path = GetWhitelistFilePath();
+
+	// A last line without a newline would run into this one.
+	bool endsInNewline = true;
+	{
+		std::ifstream existing(path, std::ios::binary | std::ios::ate);
+		if (existing.is_open() && existing.tellg() > 0)
+		{
+			existing.seekg(-1, std::ios::end);
+			endsInNewline = existing.get() == '\n';
+		}
+	}
+
+	std::ofstream file(path, std::ios::app);
+	if (!file.is_open())
+	{
+		MMU_LOG_WARN("Could not write whitelist file: %s\n", path.c_str());
+		return false;
+	}
+	file << (endsInNewline ? "" : "\n") << text << "\n";
+	return true;
+}
+
+// Drops the lines holding `groupId`, or `entry` when it is 0.
+static bool RemoveLines(uint64_t groupId, const std::string &entry)
+{
+	const std::string path = GetWhitelistFilePath();
+	const std::string tmpPath = path + ".tmp";
+
+	// Binary, so a line keeps the ending it has.
+	std::ifstream in(path, std::ios::binary);
+	if (!in.is_open())
+	{
+		return false;
+	}
+	std::ofstream out(tmpPath, std::ios::binary | std::ios::trunc);
+
+	std::string line;
+	while (std::getline(in, line))
+	{
+		uint64_t lineGroup = 0;
+		std::string lineEntry;
+		const LineKind kind = ParseLine(line, lineGroup, lineEntry);
+		const bool removed = groupId != 0 ? (kind == LineKind::Group && lineGroup == groupId) : (kind == LineKind::Entry && lineEntry == entry);
+		if (!removed)
+		{
+			out << line << "\n";
+		}
+	}
+	in.close();
+	out.close();
+
+	// Renamed over the file in one step, a crash halfway leaves the old one whole.
+	std::error_code ec;
+	if (!out.fail())
+	{
+		std::filesystem::rename(tmpPath, path, ec);
+	}
+	if (out.fail() || ec)
+	{
+		MMU_LOG_WARN("Could not write whitelist file: %s\n", path.c_str());
+		std::filesystem::remove(tmpPath, ec);
+		return false;
+	}
+	return true;
+}
+
 bool WLManager::LoadFile()
 {
 	m_whitelist.clear();
@@ -118,55 +212,29 @@ bool WLManager::LoadFile()
 
 	int count = 0;
 	int groupCount = 0;
+	int lineNumber = 0;
 	std::string line;
 	while (std::getline(file, line))
 	{
-		const char *ws = " \t\r\n";
-		auto first = line.find_first_not_of(ws);
-		if (first == std::string::npos)
+		lineNumber++;
+		uint64_t groupId = 0;
+		std::string entry;
+		switch (ParseLine(line, groupId, entry))
 		{
-			continue;
-		}
-		std::string trimmed = line.substr(first);
-
-		auto cpos = trimmed.find_first_of(";#");
-		if (cpos == std::string::npos)
-		{
-			cpos = trimmed.find("//");
-		}
-		else
-		{
-			auto slashes = trimmed.find("//");
-			if (slashes != std::string::npos && slashes < cpos)
-			{
-				cpos = slashes;
-			}
-		}
-		if (cpos != std::string::npos)
-		{
-			trimmed = trimmed.substr(0, cpos);
-		}
-		auto last = trimmed.find_last_not_of(ws);
-		if (last == std::string::npos)
-		{
-			continue;
-		}
-		trimmed = trimmed.substr(0, last + 1);
-
-		uint64_t groupId = ParseGroupEntry(trimmed);
-		if (groupId != 0)
-		{
-			m_fileGroupIds.push_back(groupId);
-			++groupCount;
-			continue;
-		}
-
-		std::string entry = NormalizeEntry(trimmed.c_str());
-		if (!entry.empty())
-		{
-			m_whitelist.insert(entry);
-			m_fileEntries.insert(entry);
-			++count;
+			case LineKind::Group:
+				m_fileGroupIds.push_back(groupId);
+				++groupCount;
+				break;
+			case LineKind::Entry:
+				m_whitelist.insert(entry);
+				m_fileEntries.insert(entry);
+				++count;
+				break;
+			case LineKind::Invalid:
+				MMU_LOG_WARN("Line %d of %s is not a SteamID, an IPv4 address or a group, skipped.\n", lineNumber, path.c_str());
+				break;
+			case LineKind::Blank:
+				break;
 		}
 	}
 
@@ -181,48 +249,12 @@ bool WLManager::LoadFile()
 	return true;
 }
 
-bool WLManager::SaveFile()
-{
-	std::string path = GetWhitelistFilePath();
-	std::ofstream file(path);
-	if (!file.is_open())
-	{
-		MMU_LOG_WARN("Could not write whitelist file: %s\n", path.c_str());
-		return false;
-	}
-
-	file << "// CS2 Whitelist - managed by cs2whitelist plugin\n"
-		 << "// One entry per line: STEAM_0:X:Y, SteamID64, IPv4 address,\n"
-		 << "// or groupID64 to whitelist all members of a Steam group.\n"
-		 << "// Lines starting with // or # are comments\n\n";
-
-	for (uint64_t gid : m_fileGroupIds)
-	{
-		file << "GROUP:" << gid << "\n";
-	}
-	if (!m_fileGroupIds.empty())
-	{
-		file << "\n";
-	}
-
-	for (const auto &e : m_fileEntries)
-	{
-		file << e << "\n";
-	}
-
-	return true;
-}
-
 bool WLManager::AddEntry(const char *entry)
 {
-	std::string normalized = NormalizeEntry(entry);
-	if (normalized.empty())
-	{
-		return false;
-	}
+	const std::string text = str::Trim(entry ? entry : "");
 
 	// A group belongs in the file's group list, not the entry set, and its members only match once they are fetched.
-	uint64_t groupId = ParseGroupEntry(normalized);
+	uint64_t groupId = ParseGroupEntry(text);
 	if (groupId != 0)
 	{
 		if (std::find(m_fileGroupIds.begin(), m_fileGroupIds.end(), groupId) != m_fileGroupIds.end())
@@ -230,73 +262,94 @@ bool WLManager::AddEntry(const char *entry)
 			return false;
 		}
 		m_fileGroupIds.push_back(groupId);
+		AppendLine("GROUP:" + std::to_string(groupId));
 		g_SteamGroupManager.FetchGroups();
 		ClearBlacklistCache();
 		return true;
 	}
 
+	std::string normalized = NormalizeEntry(text.c_str());
+	if (normalized.empty() || !m_whitelist.insert(normalized).second)
+	{
+		return false;
+	}
 	m_fileEntries.insert(normalized);
-	bool inserted = m_whitelist.insert(normalized).second;
-	if (inserted && g_WLDatabase.IsConnected())
+	AppendLine(normalized);
+	if (g_WLDatabase.IsConnected())
 	{
 		g_WLDatabase.AddEntry(normalized);
+		m_dbEntries.insert(normalized);
 	}
-	if (inserted)
-	{
-		// A player kicked earlier this map sits in the blacklist cache, which is checked before the whitelist.
-		// An entry can be an IP as well as a SteamID, so drop the whole cache rather than guess which players it covers.
-		ClearBlacklistCache();
-	}
-	return inserted;
+	// A player kicked earlier this map sits in the blacklist cache, which is checked before the whitelist.
+	// An entry can be an IP as well as a SteamID, so drop the whole cache rather than guess which players it covers.
+	ClearBlacklistCache();
+	return true;
 }
 
 bool WLManager::RemoveEntry(const char *entry)
 {
-	std::string normalized = NormalizeEntry(entry);
-	if (normalized.empty())
-	{
-		return false;
-	}
+	const std::string text = str::Trim(entry ? entry : "");
 
-	uint64_t groupId = ParseGroupEntry(normalized);
+	uint64_t groupId = ParseGroupEntry(text);
 	if (groupId != 0)
 	{
-		auto it = std::find(m_fileGroupIds.begin(), m_fileGroupIds.end(), groupId);
-		if (it == m_fileGroupIds.end())
+		auto removed = std::remove(m_fileGroupIds.begin(), m_fileGroupIds.end(), groupId);
+		if (removed == m_fileGroupIds.end())
 		{
 			return false;
 		}
-		m_fileGroupIds.erase(it);
+		m_fileGroupIds.erase(removed, m_fileGroupIds.end());
+		RemoveLines(groupId, "");
 		g_SteamGroupManager.FetchGroups();
 		// Otherwise members let in by that group stay let in until the map changes.
 		ClearWhitelistCache();
 		return true;
 	}
 
-	m_fileEntries.erase(normalized);
-	bool erased = m_whitelist.erase(normalized) > 0;
-	if (erased && g_WLDatabase.IsConnected())
+	std::string normalized = NormalizeEntry(text.c_str());
+	if (normalized.empty() || m_whitelist.erase(normalized) == 0)
+	{
+		return false;
+	}
+	if (m_fileEntries.erase(normalized) > 0)
+	{
+		RemoveLines(0, normalized);
+	}
+	// Or LoadFile would bring it back from the last database load.
+	m_dbEntries.erase(normalized);
+	if (g_WLDatabase.IsConnected())
 	{
 		g_WLDatabase.RemoveEntry(normalized);
 	}
-	if (erased)
-	{
-		// Otherwise a removed player stays let in by the whitelist cache until the map changes.
-		ClearWhitelistCache();
-	}
-	return erased;
+	// Otherwise a removed player stays let in by the whitelist cache until the map changes.
+	ClearWhitelistCache();
+	return true;
 }
 
-std::unordered_set<std::string> &WLManager::BeginDbLoad()
+void WLManager::LoadDbEntries(std::function<void(int count)> done)
 {
-	m_dbLoading.clear();
-	return m_dbLoading;
+	g_WLDatabase.LoadEntries(
+		[this, done](bool ok, const std::unordered_set<std::string> &rows)
+		{
+			if (ok)
+			{
+				SetDbEntries(rows);
+			}
+			else
+			{
+				MMU_LOG_WARN("The database's entries could not be read, those of the last load stay in place.\n");
+			}
+			if (done)
+			{
+				done(ok ? static_cast<int>(m_dbEntries.size()) : -1);
+			}
+		});
 }
 
-void WLManager::FinishDbLoad()
+void WLManager::SetDbEntries(const std::unordered_set<std::string> &rows)
 {
 	m_dbEntries.clear();
-	for (const std::string &row : m_dbLoading)
+	for (const std::string &row : rows)
 	{
 		std::string normalized = NormalizeEntry(row.c_str());
 		if (!normalized.empty())
@@ -304,17 +357,20 @@ void WLManager::FinishDbLoad()
 			m_dbEntries.insert(std::move(normalized));
 		}
 	}
-	m_dbLoading.clear();
 
+	// Rebuilt rather than added to, a row deleted from the database has to stop granting access.
+	m_whitelist = m_fileEntries;
 	m_whitelist.insert(m_dbEntries.begin(), m_dbEntries.end());
 
-	// A player kicked before the rows arrived is still in the blacklist cache, which is checked before the whitelist.
+	// A player kicked before the rows arrived is still in the blacklist cache, which is checked before the whitelist,
+	// and one let in by a row that is gone now is in the other.
 	ClearBlacklistCache();
+	ClearWhitelistCache();
 }
 
 bool WLManager::IsPlayerWhitelisted(int slot) const
 {
-	const PlayerInfo *p = g_WLPlayerManager.GetPlayer(slot);
+	const mmu::Player *p = mmu::players::Get(slot);
 	if (!p)
 	{
 		return false;
@@ -325,22 +381,7 @@ bool WLManager::IsPlayerWhitelisted(int slot) const
 		return true;
 	}
 
-	if (p->xuid != 0)
-	{
-		if (m_whitelist.count(SteamID64ToAuthId(p->xuid)))
-		{
-			return true;
-		}
-
-		char buf[32];
-		snprintf(buf, sizeof(buf), "%llu", static_cast<unsigned long long>(p->xuid));
-		if (m_whitelist.count(buf))
-		{
-			return true;
-		}
-	}
-
-	return false;
+	return p->steamid64 != 0 && m_whitelist.count(SteamID64ToAuthId(p->steamid64)) > 0;
 }
 
 bool WLManager::IsEntryWhitelisted(const char *entry) const
@@ -413,36 +454,5 @@ void WLLogKick(const char *name, uint64_t xuid, const char *ip, bool alreadyCach
 
 	std::string authid = xuid ? SteamID64ToAuthId(xuid) : "unknown";
 
-	time_t now = time(nullptr);
-	struct tm tm_info;
-#ifdef _WIN32
-	localtime_s(&tm_info, &now);
-#else
-	localtime_r(&now, &tm_info);
-#endif
-	char timebuf[32];
-	strftime(timebuf, sizeof(timebuf), "%Y-%m-%d %H:%M:%S", &tm_info);
-
-	char datebuf[16];
-	strftime(datebuf, sizeof(datebuf), "%Y-%m-%d", &tm_info);
-
-	const char *safeName = name ? name : "?";
-	const char *safeIp = ip ? ip : "?";
-
-	MMU_LOG_INFO("[%s] Kick: \"%s\" xuid=%llu authid=%s ip=%s\n", timebuf, safeName, static_cast<unsigned long long>(xuid), authid.c_str(), safeIp);
-
-	char logDir[512];
-	snprintf(logDir, sizeof(logDir), "%s/addons/cs2whitelist/logs", g_SMAPI->GetBaseDir());
-
-	std::error_code ec;
-	std::filesystem::create_directories(logDir, ec);
-
-	char logPath[600];
-	snprintf(logPath, sizeof(logPath), "%s/%s.log", logDir, datebuf);
-
-	std::ofstream f(logPath, std::ios::app);
-	if (f.is_open())
-	{
-		f << "[" << timebuf << "] Kick: \"" << safeName << "\" xuid=" << xuid << " authid=" << authid << " ip=" << safeIp << "\n";
-	}
+	MMU_LOG_INFO("Kick: \"%s\" xuid=%llu authid=%s ip=%s\n", name ? name : "?", static_cast<unsigned long long>(xuid), authid.c_str(), ip ? ip : "?");
 }
