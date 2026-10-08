@@ -8,7 +8,6 @@
 
 #include <algorithm>
 #include <eiface.h>
-#include <filesystem>
 #include <fstream>
 #include <cctype>
 #include <cstring>
@@ -149,7 +148,6 @@ static bool AppendLine(const std::string &text)
 static bool RemoveLines(uint64_t groupId, const std::string &entry)
 {
 	const std::string path = GetWhitelistFilePath();
-	const std::string tmpPath = path + ".tmp";
 
 	// Binary, so a line keeps the ending it has.
 	std::ifstream in(path, std::ios::binary);
@@ -157,8 +155,8 @@ static bool RemoveLines(uint64_t groupId, const std::string &entry)
 	{
 		return false;
 	}
-	std::ofstream out(tmpPath, std::ios::binary | std::ios::trunc);
 
+	std::string kept;
 	std::string line;
 	while (std::getline(in, line))
 	{
@@ -168,22 +166,18 @@ static bool RemoveLines(uint64_t groupId, const std::string &entry)
 		const bool removed = groupId != 0 ? (kind == LineKind::Group && lineGroup == groupId) : (kind == LineKind::Entry && lineEntry == entry);
 		if (!removed)
 		{
-			out << line << "\n";
+			kept += line + "\n";
 		}
 	}
 	in.close();
-	out.close();
 
-	// Renamed over the file in one step, a crash halfway leaves the old one whole.
-	std::error_code ec;
-	if (!out.fail())
-	{
-		std::filesystem::rename(tmpPath, path, ec);
-	}
-	if (out.fail() || ec)
+	// In place: a rename over it would swap a symlinked file for a copy, and fails on one mounted into a container.
+	std::ofstream out(path, std::ios::binary | std::ios::trunc);
+	out << kept;
+	out.close();
+	if (out.fail())
 	{
 		MMU_LOG_WARN("Could not write whitelist file: %s\n", path.c_str());
-		std::filesystem::remove(tmpPath, ec);
 		return false;
 	}
 	return true;
