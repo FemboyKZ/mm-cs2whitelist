@@ -66,6 +66,14 @@
 	{
 		"en"	"'%s' is already in the whitelist (or is invalid)."
 	}
+	"The whitelist file could not be written."
+	{
+		"en"	"The whitelist file could not be written."
+	}
+	"Steam groups are disabled in core.cfg, so this group lets nobody in."
+	{
+		"en"	"Steam groups are disabled in core.cfg, so this group lets nobody in."
+	}
 
 	// mm_whitelist_remove
 	"Usage: mm_whitelist_remove <steamid|ip>"

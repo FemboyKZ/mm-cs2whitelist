@@ -1,6 +1,5 @@
 #include "wl_database.h"
 #include "utils/log.h"
-#include "utils/steamid.h"
 #include "wl_config.h"
 #include "common.h"
 
@@ -183,23 +182,17 @@ void WLDatabase::AddEntry(const std::string &authid)
 	Query(q, [](ISQLQuery *) {});
 }
 
-void WLDatabase::RemoveEntry(const std::string &authid)
+void WLDatabase::RemoveEntry(const std::string &row)
 {
 	if (!m_conn.IsConnected())
 	{
 		return;
 	}
 
-	// Rows may hold the SteamID in another form.
-	std::string match = "authid = '" + Escape(authid.c_str()) + "'";
-	if (const uint64_t steamid64 = ParseSteamID64(authid))
-	{
-		match = mmu::sql::AuthMatch("authid", SteamID64ToSuffix(steamid64)) + " OR authid = '" + std::to_string(steamid64) + "'";
-	}
-
 	const char *p = m_prefix.c_str();
 	char q[512];
-	snprintf(q, sizeof(q), m_bMySQL ? "DELETE FROM `%s_whitelist` WHERE %s" : "DELETE FROM %s_whitelist WHERE %s", p, match.c_str());
+	snprintf(q, sizeof(q), m_bMySQL ? "DELETE FROM `%s_whitelist` WHERE `authid` = '%s'" : "DELETE FROM %s_whitelist WHERE authid = '%s'", p,
+			 Escape(row.c_str()).c_str());
 
 	Query(q, [](ISQLQuery *) {});
 }

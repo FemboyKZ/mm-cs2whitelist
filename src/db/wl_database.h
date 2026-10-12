@@ -35,7 +35,8 @@ public:
 
 	// persist an add/remove to the DB.
 	void AddEntry(const std::string &authid);
-	void RemoveEntry(const std::string &authid);
+	// `row` as LoadEntries gave it, not every row is written the way AddEntry writes one.
+	void RemoveEntry(const std::string &row);
 
 	// Call every frame to have a failed connect retried.
 	void RunFrame(double now)

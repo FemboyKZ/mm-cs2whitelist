@@ -65,6 +65,7 @@ static uint64_t ParseGroupEntry(const std::string &line)
 		if (std::memcmp(upper, "GROUP:", 6) == 0)
 		{
 			numStart = line.c_str() + 6;
+			numStart += std::strspn(numStart, " \t");
 		}
 	}
 
@@ -104,7 +105,9 @@ enum class LineKind
 
 static LineKind ParseLine(const std::string &line, uint64_t &groupId, std::string &entry)
 {
-	const std::string text = str::Trim(line.substr(0, (std::min)(line.find_first_of(";#"), line.find("//"))));
+	// Some Windows editors lead the file with a UTF-8 byte-order mark.
+	std::string text = line.compare(0, 3, "\xEF\xBB\xBF") == 0 ? line.substr(3) : line;
+	text = str::Trim(text.substr(0, (std::min)(text.find_first_of(";#"), text.find("//"))));
 	if (text.empty())
 	{
 		return LineKind::Blank;
@@ -243,7 +246,9 @@ bool WLManager::LoadFile()
 	return true;
 }
 
-bool WLManager::AddEntry(const char *entry)
+static const char *const kNotSaved = "The whitelist file could not be written.";
+
+bool WLManager::AddEntry(const char *entry, const char **problem)
 {
 	const std::string text = str::Trim(entry ? entry : "");
 
@@ -256,7 +261,15 @@ bool WLManager::AddEntry(const char *entry)
 			return false;
 		}
 		m_fileGroupIds.push_back(groupId);
-		AppendLine("GROUP:" + std::to_string(groupId));
+		const bool saved = AppendLine("GROUP:" + std::to_string(groupId));
+		if (problem && !saved)
+		{
+			*problem = kNotSaved;
+		}
+		else if (problem && !g_SteamGroupManager.IsEnabled())
+		{
+			*problem = "Steam groups are disabled in core.cfg, so this group lets nobody in.";
+		}
 		g_SteamGroupManager.FetchGroups();
 		ClearBlacklistCache();
 		return true;
@@ -268,19 +281,20 @@ bool WLManager::AddEntry(const char *entry)
 		return false;
 	}
 	m_fileEntries.insert(normalized);
-	AppendLine(normalized);
+	if (!AppendLine(normalized) && problem)
+	{
+		*problem = kNotSaved;
+	}
+	m_dbRemovals.erase(normalized);
 	if (g_WLDatabase.IsConnected())
 	{
 		g_WLDatabase.AddEntry(normalized);
 		m_dbEntries.insert(normalized);
 	}
-	// A player kicked earlier this map sits in the blacklist cache, which is checked before the whitelist.
-	// An entry can be an IP as well as a SteamID, so drop the whole cache rather than guess which players it covers.
-	ClearBlacklistCache();
 	return true;
 }
 
-bool WLManager::RemoveEntry(const char *entry)
+bool WLManager::RemoveEntry(const char *entry, const char **problem)
 {
 	const std::string text = str::Trim(entry ? entry : "");
 
@@ -293,7 +307,10 @@ bool WLManager::RemoveEntry(const char *entry)
 			return false;
 		}
 		m_fileGroupIds.erase(removed, m_fileGroupIds.end());
-		RemoveLines(groupId, "");
+		if (!RemoveLines(groupId, "") && problem)
+		{
+			*problem = kNotSaved;
+		}
 		g_SteamGroupManager.FetchGroups();
 		// Otherwise members let in by that group stay let in until the map changes.
 		ClearWhitelistCache();
@@ -305,15 +322,20 @@ bool WLManager::RemoveEntry(const char *entry)
 	{
 		return false;
 	}
-	if (m_fileEntries.erase(normalized) > 0)
+	if (m_fileEntries.erase(normalized) > 0 && !RemoveLines(0, normalized) && problem)
 	{
-		RemoveLines(0, normalized);
+		*problem = kNotSaved;
 	}
 	// Or LoadFile would bring it back from the last database load.
 	m_dbEntries.erase(normalized);
+	// Its rows are deleted by a load, which sees how they are written. With no connection, by the next one.
+	if (g_WLDatabase.IsEnabled())
+	{
+		m_dbRemovals.insert(normalized);
+	}
 	if (g_WLDatabase.IsConnected())
 	{
-		g_WLDatabase.RemoveEntry(normalized);
+		LoadDbEntries(nullptr);
 	}
 	// Otherwise a removed player stays let in by the whitelist cache until the map changes.
 	ClearWhitelistCache();
@@ -343,22 +365,28 @@ void WLManager::LoadDbEntries(std::function<void(int count)> done)
 void WLManager::SetDbEntries(const std::unordered_set<std::string> &rows)
 {
 	m_dbEntries.clear();
+	std::unordered_set<std::string> stillThere;
 	for (const std::string &row : rows)
 	{
 		std::string normalized = NormalizeEntry(row.c_str());
-		if (!normalized.empty())
+		if (m_dbRemovals.count(normalized))
+		{
+			g_WLDatabase.RemoveEntry(row);
+			stillThere.insert(std::move(normalized));
+		}
+		else if (!normalized.empty())
 		{
 			m_dbEntries.insert(std::move(normalized));
 		}
 	}
+	// Kept until a load comes back without the row, one sent before the delete still has it.
+	m_dbRemovals = std::move(stillThere);
 
 	// Rebuilt rather than added to, a row deleted from the database has to stop granting access.
 	m_whitelist = m_fileEntries;
 	m_whitelist.insert(m_dbEntries.begin(), m_dbEntries.end());
 
-	// A player kicked before the rows arrived is still in the blacklist cache, which is checked before the whitelist,
-	// and one let in by a row that is gone now is in the other.
-	ClearBlacklistCache();
+	// A player let in by a row that is gone now is still in the whitelist cache.
 	ClearWhitelistCache();
 }
 
@@ -375,7 +403,8 @@ bool WLManager::IsPlayerWhitelisted(int slot) const
 		return true;
 	}
 
-	return p->steamid64 != 0 && m_whitelist.count(SteamID64ToAuthId(p->steamid64)) > 0;
+	// Until Steam confirms it, the SteamID is only what the client claimed.
+	return p->authenticated && p->steamid64 != 0 && m_whitelist.count(SteamID64ToAuthId(p->steamid64)) > 0;
 }
 
 bool WLManager::IsEntryWhitelisted(const char *entry) const
@@ -394,6 +423,10 @@ void WLManager::PrintList(int slot) const
 	for (const auto &e : m_whitelist)
 	{
 		ReplyToSlot(slot, "  %s\n", e.c_str());
+	}
+	for (uint64_t groupId : m_fileGroupIds)
+	{
+		ReplyToSlot(slot, "  GROUP:%llu\n", static_cast<unsigned long long>(groupId));
 	}
 }
 

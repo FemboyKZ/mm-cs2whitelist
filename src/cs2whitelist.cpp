@@ -318,6 +318,15 @@ void CS2WhitelistPlugin::CheckPlayer(int idx, const std::string &name)
 	{
 		return;
 	}
+	// The SteamID is only what the client claimed, so nothing is granted or cached on it. The IP is real.
+	if (!p->authenticated)
+	{
+		if (!g_WLManager.IsPlayerWhitelisted(idx))
+		{
+			RejectPlayer(idx, pszName, false);
+		}
+		return;
+	}
 	if (g_WLManager.IsWhitelistCached(p->steamid64))
 	{
 		return;
@@ -326,6 +335,13 @@ void CS2WhitelistPlugin::CheckPlayer(int idx, const std::string &name)
 	if (cv_immunity.Get() && g_CS2Admin.IsAdmin(idx))
 	{
 		MMU_LOG_INFO("Slot %d (%s) has admin immunity.\n", idx, pszName ? pszName : "?");
+		g_WLManager.AddToWhitelistCache(p->steamid64);
+		return;
+	}
+
+	// Ahead of the blacklist cache, which is by SteamID: an entry can be an IP the player was not on when kicked.
+	if (g_WLManager.IsPlayerWhitelisted(idx))
+	{
 		g_WLManager.AddToWhitelistCache(p->steamid64);
 		return;
 	}
@@ -341,12 +357,6 @@ void CS2WhitelistPlugin::CheckPlayer(int idx, const std::string &name)
 			g_pEngine->ClientPrintf(slot, kickmsg);
 			g_pEngine->DisconnectClient(slot, NETWORK_DISCONNECT_KICKED, msg.c_str());
 		}
-		return;
-	}
-
-	if (g_WLManager.IsPlayerWhitelisted(idx))
-	{
-		g_WLManager.AddToWhitelistCache(p->steamid64);
 		return;
 	}
 
@@ -380,11 +390,15 @@ void CS2WhitelistPlugin::RejectPlayer(int idx, const char *pszName, bool cacheRe
 		return;
 	}
 
-	for (ICS2WhitelistListener *l : m_listeners)
+	// A copy, a listener may remove itself from inside the call.
+	for (ICS2WhitelistListener *l : std::vector<ICS2WhitelistListener *>(m_listeners))
 	{
 		if (l->OnWhitelistKickPre(idx) == WLKickResult::Block)
 		{
-			g_WLManager.AddToWhitelistCache(p->steamid64);
+			if (p->authenticated)
+			{
+				g_WLManager.AddToWhitelistCache(p->steamid64);
+			}
 			return;
 		}
 	}
@@ -472,19 +486,20 @@ bool CS2WhitelistPlugin::IsPlayerWhitelisted(int slot) const
 	{
 		return true;
 	}
+	// In CheckPlayer's order.
+	if (!p->authenticated)
+	{
+		return g_WLManager.IsPlayerWhitelisted(slot);
+	}
 	if (g_WLManager.IsWhitelistCached(p->steamid64))
 	{
 		return true;
 	}
-	if (g_WLManager.IsBlacklisted(p->steamid64))
-	{
-		return false;
-	}
-	if (cv_immunity.Get() && g_CS2Admin.IsAdmin(slot))
+	if ((cv_immunity.Get() && g_CS2Admin.IsAdmin(slot)) || g_WLManager.IsPlayerWhitelisted(slot))
 	{
 		return true;
 	}
-	return g_WLManager.IsPlayerWhitelisted(slot) || g_SteamGroupManager.IsXuidInAnyGroup(p->steamid64);
+	return !g_WLManager.IsBlacklisted(p->steamid64) && g_SteamGroupManager.IsXuidInAnyGroup(p->steamid64);
 }
 
 bool CS2WhitelistPlugin::IsEntryWhitelisted(const char *entry) const
@@ -521,7 +536,10 @@ int CS2WhitelistPlugin::GetBlacklistCacheCount() const
 
 bool CS2WhitelistPlugin::ReloadFile()
 {
-	return g_WLManager.LoadFile();
+	const bool loaded = g_WLManager.LoadFile();
+	// Even a failed load drops the file's groups.
+	g_SteamGroupManager.FetchGroups();
+	return loaded;
 }
 
 bool CS2WhitelistPlugin::AddEntry(const char *entry)

@@ -29,8 +29,9 @@ public:
 	bool LoadFile();
 
 	// Both write the change to the file, and to the database when it is connected.
-	bool AddEntry(const char *entry);
-	bool RemoveEntry(const char *entry);
+	// `problem` gets a phrase to pass on when a change was made but did not fully take.
+	bool AddEntry(const char *entry, const char **problem = nullptr);
+	bool RemoveEntry(const char *entry, const char **problem = nullptr);
 
 	bool IsPlayerWhitelisted(int slot) const;
 	bool IsEntryWhitelisted(const char *entry) const;
@@ -38,6 +39,12 @@ public:
 	int GetEntryCount() const
 	{
 		return static_cast<int>(m_whitelist.size());
+	}
+
+	// Without the database's, an entry can be in both.
+	int GetFileEntryCount() const
+	{
+		return static_cast<int>(m_fileEntries.size());
 	}
 
 	void PrintList(int slot) const;
@@ -82,6 +89,8 @@ private:
 	std::unordered_set<std::string> m_fileEntries;
 	// Rows of the last finished database load, re-applied by LoadFile so a file reload does not drop DB only entries.
 	std::unordered_set<std::string> m_dbEntries;
+	// Entries removed whose rows the database may still hold.
+	std::unordered_set<std::string> m_dbRemovals;
 	std::unordered_set<uint64_t> m_blacklistCache;
 	std::unordered_set<uint64_t> m_whitelistCache;
 	std::vector<uint64_t> m_fileGroupIds;

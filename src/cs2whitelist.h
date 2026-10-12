@@ -128,7 +128,7 @@ private:
 	// A no-op until the player is in game.
 	void QueueCheck(int slot);
 
-	// When an unconfirmed player is checked anyway, 0 for none. Steam being unreachable must not stop the checks.
+	// When an unconfirmed player is checked anyway, by IP alone. 0 for none. Steam being unreachable must not stop the checks.
 	double m_authDeadline[MAXPLAYERS + 1] = {};
 
 	KHook::Virtual<IServerGameClients, void, CPlayerSlot, const char *, uint64, const char *, const char *, bool> m_OnClientConnected;

@@ -5,6 +5,7 @@
 #include "utils/utils.h"
 #include "interfaces/cs2admin/ics2admin.h"
 #include "utils/command_args.h"
+#include "game/players.h"
 
 #include <tier1/convar.h>
 
@@ -52,25 +53,35 @@ CON_COMMAND_F(mm_whitelist_reload, "Reload the whitelist file from disk.", FCVAR
 		return;
 	}
 
-	if (g_WLManager.LoadFile())
+	const bool loaded = g_WLManager.LoadFile();
+	// Even a failed load drops the file's groups.
+	g_SteamGroupManager.FetchGroups();
+	if (loaded)
 	{
-		g_SteamGroupManager.FetchGroups();
 		if (g_WLDatabase.IsConnected())
 		{
+			const mmu::Player *caller = mmu::players::Get(slot);
+			const uint64_t xuid = caller ? caller->steamid64 : 0;
 			g_WLManager.LoadDbEntries(
-				[slot](int count)
+				[slot, xuid](int count)
 				{
-					if (count < 0)
+					// The slot may have changed hands while the query ran.
+					const mmu::Player *p = mmu::players::Get(slot);
+					if (slot >= 0 && (!p || p->steamid64 != xuid))
 					{
-						ReplyToSlotT(slot, "Reloaded %d entries from disk.", g_WLManager.GetEntryCount());
 						return;
 					}
-					ReplyToSlotT(slot, "Reloaded %d entries from disk + %d from database.", g_WLManager.GetEntryCount() - count, count);
+					if (count < 0)
+					{
+						ReplyToSlotT(slot, "Reloaded %d entries from disk.", g_WLManager.GetFileEntryCount());
+						return;
+					}
+					ReplyToSlotT(slot, "Reloaded %d entries from disk + %d from database.", g_WLManager.GetFileEntryCount(), count);
 				});
 		}
 		else
 		{
-			ReplyToSlotT(slot, "Reloaded %d entries from disk.", g_WLManager.GetEntryCount());
+			ReplyToSlotT(slot, "Reloaded %d entries from disk.", g_WLManager.GetFileEntryCount());
 		}
 	}
 	else
@@ -108,9 +119,14 @@ CON_COMMAND_F(mm_whitelist_add,
 	}
 
 	const char *entry = arg.c_str();
-	if (g_WLManager.AddEntry(entry))
+	const char *problem = nullptr;
+	if (g_WLManager.AddEntry(entry, &problem))
 	{
 		ReplyToSlotT(slot, "Added '%s'. Saving file...", entry);
+		if (problem)
+		{
+			ReplyToSlotT(slot, problem);
+		}
 	}
 	else
 	{
@@ -136,9 +152,14 @@ CON_COMMAND_F(mm_whitelist_remove,
 	}
 
 	const char *entry = arg.c_str();
-	if (g_WLManager.RemoveEntry(entry))
+	const char *problem = nullptr;
+	if (g_WLManager.RemoveEntry(entry, &problem))
 	{
 		ReplyToSlotT(slot, "Removed '%s'. Saving file...", entry);
+		if (problem)
+		{
+			ReplyToSlotT(slot, problem);
+		}
 	}
 	else
 	{

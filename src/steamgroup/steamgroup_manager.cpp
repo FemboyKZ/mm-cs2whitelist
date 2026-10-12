@@ -297,7 +297,12 @@ void SteamGroupManager::OnApiResponse(int slot, uint64_t xuid, bool ok, const st
 	const std::string name = it->second.name;
 	m_pendingApi.erase(it);
 
-	const bool answered = ok && !body.empty() && body.size() < kMaxBodySize;
+	// "success":false is Steam saying it could not tell, not that the player is in no group.
+	size_t success = body.find("\"success\"");
+	success = success == std::string::npos ? success : body.find_first_not_of(": \t\r\n", success + 9);
+	const bool failed = success != std::string::npos && body.compare(success, 5, "false") == 0;
+
+	const bool answered = ok && !body.empty() && body.size() < kMaxBodySize && !failed;
 	const bool inGroup = answered && ParseApiResponse(xuid, body);
 	MMU_LOG_INFO("SteamGroup: API response for slot=%d xuid=%llu: %s (body_len=%u)\n", slot, (unsigned long long)xuid,
 				 inGroup    ? "IN GROUP"
