@@ -114,10 +114,10 @@ bool CS2WhitelistPlugin::LoadConfigAndFile()
 
 	if (WL_LoadConfig(cfgPath, g_WLConfig))
 	{
-		cv_enable.Set(g_WLConfig.enabled);
-		cv_immunity.Set(g_WLConfig.immunity);
-		cv_filename.Set(CUtlString(g_WLConfig.filename.c_str()));
-		cv_log.Set(g_WLConfig.logRejects);
+		cv_enable.Set(g_WLConfig.general.enabled);
+		cv_immunity.Set(g_WLConfig.general.immunity);
+		cv_filename.Set(CUtlString(g_WLConfig.general.filename.c_str()));
+		cv_log.Set(g_WLConfig.general.logRejects);
 		MMU_LOG_INFO("Loaded core.cfg.\n");
 	}
 	else
@@ -128,11 +128,11 @@ bool CS2WhitelistPlugin::LoadConfigAndFile()
 	WL_LoadTranslations();
 
 	SteamGroupManager::Config sgCfg;
-	sgCfg.enabled = g_WLConfig.sgEnabled;
-	sgCfg.method = (g_WLConfig.sgMode == "api") ? SteamGroupManager::Method::API : SteamGroupManager::Method::XML;
-	sgCfg.apiKey = g_WLConfig.sgSteamApiKey;
-	sgCfg.timeout = g_WLConfig.sgTimeout;
-	sgCfg.groupIds = g_WLConfig.sgGroupIds;
+	sgCfg.enabled = g_WLConfig.steamGroups.enabled;
+	sgCfg.method = (g_WLConfig.steamGroups.mode == "api") ? SteamGroupManager::Method::API : SteamGroupManager::Method::XML;
+	sgCfg.apiKey = g_WLConfig.steamGroups.steamApiKey;
+	sgCfg.timeout = g_WLConfig.steamGroups.timeout;
+	sgCfg.groupIds = g_WLConfig.steamGroups.groupIds;
 	g_SteamGroupManager.Init(sgCfg);
 
 	// Reads cv_filename, so it follows the config.

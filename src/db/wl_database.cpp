@@ -11,9 +11,9 @@ WLDatabase g_WLDatabase;
 
 bool WLDatabase::Init(const WLConfig &cfg)
 {
-	if (!cfg.dbEnabled)
+	if (!cfg.databaseEnabled)
 	{
-		MMU_LOG_WARN("Database disabled (dbEnabled=0 in core.cfg).\n");
+		MMU_LOG_WARN("Database disabled (Database > Enabled is 0 in core.cfg).\n");
 		return false;
 	}
 

@@ -26,19 +26,19 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 	{
 		if (k == "enabled" || k == "enable")
 		{
-			cfg->enabled = (value != "0");
+			cfg->general.enabled = (value != "0");
 		}
 		else if (k == "immunity")
 		{
-			cfg->immunity = (value != "0");
+			cfg->general.immunity = (value != "0");
 		}
 		else if (k == "filename")
 		{
-			cfg->filename = value;
+			cfg->general.filename = value;
 		}
 		else if (k == "logrejects" || k == "log")
 		{
-			cfg->logRejects = std::atoi(value.c_str());
+			cfg->general.logRejects = std::atoi(value.c_str());
 		}
 		else if (mmu::config::ApplyLogKey(cfg->log, k, value))
 		{
@@ -53,19 +53,19 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 	{
 		if (k == "enabled")
 		{
-			cfg->sgEnabled = (value != "0");
+			cfg->steamGroups.enabled = (value != "0");
 		}
 		else if (k == "mode" || k == "method")
 		{
-			cfg->sgMode = str::ToLower(value);
+			cfg->steamGroups.mode = str::ToLower(value);
 		}
 		else if (k == "steamapikey" || k == "apikey")
 		{
-			cfg->sgSteamApiKey = value;
+			cfg->steamGroups.steamApiKey = value;
 		}
 		else if (k == "timeout")
 		{
-			cfg->sgTimeout = static_cast<float>(std::atof(value.c_str()));
+			cfg->steamGroups.timeout = static_cast<float>(std::atof(value.c_str()));
 		}
 		else
 		{
@@ -93,13 +93,13 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 			}
 			if (gid != 0)
 			{
-				cfg->sgGroupIds.push_back(gid);
+				cfg->steamGroups.groupIds.push_back(gid);
 			}
 		}
 	}
 	else if (sec == "database")
 	{
-		known = mmu::config::ApplyOptionalDatabaseKey(cfg->database, cfg->dbEnabled, k, value);
+		known = mmu::config::ApplyOptionalDatabaseKey(cfg->database, cfg->databaseEnabled, k, value);
 	}
 	else
 	{
