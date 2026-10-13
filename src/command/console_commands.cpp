@@ -46,6 +46,11 @@ CON_COMMAND_F(mm_whitelist_status, "Show whitelist status (enabled, entry count,
 				 g_WLManager.GetWhitelistCacheCount(), g_WLManager.GetBlacklistCacheCount(), cv_filename.Get().Get());
 }
 
+CON_COMMAND_F(mm_whitelist_version, "Print the plugin version.", FCVAR_GAMEDLL | FCVAR_RELEASE)
+{
+	MMU_LOG_INFO("Plugin version %s, interface %s.\n", PLUGIN_FULL_VERSION, CS2WHITELIST_INTERFACE);
+}
+
 CON_COMMAND_F(mm_whitelist_reload, "Reload core.cfg and the whitelist file from disk.", FCVAR_GAMEDLL | FCVAR_RELEASE)
 {
 	int slot = context.GetPlayerSlot().Get();

@@ -26,6 +26,7 @@ The server console always has full access.
 | `mm_whitelist_remove`      | `e` unban    | Remove a SteamID/IP from the whitelist        |
 | `mm_whitelist_reload`      | `h` convars  | Reload core.cfg and the whitelist file        |
 | `mm_whitelist_cache_clear` | `h` convars  | Clear the per-map whitelist/rejection cache   |
+| `mm_whitelist_version`     | console only | Print the plugin version                      |
 
 ## admin_overrides.cfg examples
 
