@@ -21,7 +21,7 @@ Restricts server access to a list of Steam Group members, SteamIDs and IP addres
 1. Install the dependencies.
 2. Download the [latest release](https://github.com/FemboyKZ/mm-cs2whitelist/releases/latest) and extract it in your server's root folder (`~/game/csgo/`)
 3. Configure the core config file in `/cfg/cs2whitelist/core.cfg`.
-4. Create a new file or rename the .example to `whitelist.txt` and add your selection of user's IDs/IPs to the file.
+4. Create a new file or rename `whitelist.example.txt` to `whitelist.txt` and add your selection of user's IDs/IPs to the file.
    (Alternatively) Configure your whitelist via the commands, or by directly modifying the database.
 
 ### Configuration

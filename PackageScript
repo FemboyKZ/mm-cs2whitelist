@@ -120,7 +120,9 @@ for task in MMSPlugin.binaries:
     packages[sdk_name].addBinary(task.binary)
 
     # Copy example whitelist config
-    packages[sdk_name].addFile("configs/whitelist.txt", "configs/whitelist.txt.example")
+    packages[sdk_name].addFile(
+        "configs/whitelist.example.txt", "configs/whitelist.example.txt"
+    )
 
     # Deploy translation files
     packages[sdk_name].addFolder("translations", "translations")

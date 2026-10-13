@@ -61,7 +61,7 @@ jobs:
           cp -r build/package/addons/* staging/addons/
           mkdir -p staging/cfg/cs2whitelist
           cp configs/*.cfg staging/cfg/cs2whitelist/
-          cp configs/whitelist.txt staging/cfg/cs2whitelist/whitelist.txt.example
+          cp configs/whitelist.example.txt staging/cfg/cs2whitelist/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
@@ -128,7 +128,7 @@ jobs:
           Copy-Item -Recurse build/package/addons/* staging/addons/
           New-Item -ItemType Directory -Force -Path staging/cfg/cs2whitelist | Out-Null
           Copy-Item configs/*.cfg staging/cfg/cs2whitelist/
-          Copy-Item configs/whitelist.txt staging/cfg/cs2whitelist/whitelist.txt.example
+          Copy-Item configs/whitelist.example.txt staging/cfg/cs2whitelist/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
