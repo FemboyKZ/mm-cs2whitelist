@@ -13,7 +13,7 @@
 #include <cstring>
 #include <stdexcept>
 
-CConVar<bool> cv_enable("mm_whitelist_enable", FCVAR_RELEASE | FCVAR_GAMEDLL, "Enable the server whitelist (1) or disable it (0).", true);
+CConVar<bool> cv_enable("mm_whitelist_enabled", FCVAR_RELEASE | FCVAR_GAMEDLL, "Enable the server whitelist (1) or disable it (0).", true);
 
 CConVar<bool> cv_immunity("mm_whitelist_immunity", FCVAR_RELEASE | FCVAR_GAMEDLL,
 						  "Skip the whitelist check for players with any cs2admin flag "
@@ -25,7 +25,7 @@ CConVar<CUtlString> cv_filename("mm_whitelist_filename", FCVAR_RELEASE | FCVAR_G
 								"Path separators are stripped to prevent directory traversal.",
 								"whitelist.txt");
 
-CConVar<int> cv_log("mm_whitelist_log", FCVAR_RELEASE | FCVAR_GAMEDLL,
+CConVar<int> cv_log("mm_whitelist_log_rejects", FCVAR_RELEASE | FCVAR_GAMEDLL,
 					"Log failed join attempts to the plugin's log. "
 					"0=off  1=always  2=once per player per map.",
 					0, true, 0, true, 2);

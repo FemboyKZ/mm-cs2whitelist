@@ -40,12 +40,12 @@ Supported entry types:
 
 ### ConVars
 
-| ConVar                  | Default         | Description                                                                                                                                                                         |
-| ----------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `mm_whitelist_enable`   | `1`             | Enable (1) or disable (0) the whitelist.                                                                                                                                            |
-| `mm_whitelist_immunity` | `1`             | Skip the check for players with any cs2admin flag.                                                                                                                                  |
-| `mm_whitelist_filename` | `whitelist.txt` | File name inside `cfg/cs2whitelist/`.                                                                                                                                               |
-| `mm_whitelist_log`      | `0`             | Log failed join attempts. `0` = off, `1` = always, `2` = once per player per map. Logs to console and, with `LogToFile` on, `addons/cs2whitelist/logs/cs2whitelist_YYYY-MM-DD.log`. |
+| ConVar                     | Default         | Description                                                                                                                                                                         |
+| -------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mm_whitelist_enabled`     | `1`             | Enable (1) or disable (0) the whitelist.                                                                                                                                            |
+| `mm_whitelist_immunity`    | `1`             | Skip the check for players with any cs2admin flag.                                                                                                                                  |
+| `mm_whitelist_filename`    | `whitelist.txt` | File name inside `cfg/cs2whitelist/`.                                                                                                                                               |
+| `mm_whitelist_log_rejects` | `0`             | Log failed join attempts. `0` = off, `1` = always, `2` = once per player per map. Logs to console and, with `LogToFile` on, `addons/cs2whitelist/logs/cs2whitelist_YYYY-MM-DD.log`. |
 
 ### Admin commands
 
