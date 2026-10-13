@@ -2,7 +2,7 @@
 #include <algorithm>
 
 #include "cs2whitelist.h"
-#include "db/wl_config.h"
+#include "config/config.h"
 #include "db/wl_database.h"
 #include "interfaces/cs2admin/ics2admin.h"
 #include "lang/translations.h"
@@ -114,10 +114,10 @@ bool CS2WhitelistPlugin::LoadConfigAndFile()
 
 	if (WL_LoadConfig(cfgPath, g_WLConfig))
 	{
-		cv_enable.Set(g_WLConfig.enable);
+		cv_enable.Set(g_WLConfig.enabled);
 		cv_immunity.Set(g_WLConfig.immunity);
 		cv_filename.Set(CUtlString(g_WLConfig.filename.c_str()));
-		cv_log.Set(g_WLConfig.logMode);
+		cv_log.Set(g_WLConfig.logRejects);
 		MMU_LOG_INFO("Loaded core.cfg.\n");
 	}
 	else
@@ -129,8 +129,8 @@ bool CS2WhitelistPlugin::LoadConfigAndFile()
 
 	SteamGroupManager::Config sgCfg;
 	sgCfg.enabled = g_WLConfig.sgEnabled;
-	sgCfg.method = (g_WLConfig.sgMethod == "api") ? SteamGroupManager::Method::API : SteamGroupManager::Method::XML;
-	sgCfg.apiKey = g_WLConfig.sgApiKey;
+	sgCfg.method = (g_WLConfig.sgMode == "api") ? SteamGroupManager::Method::API : SteamGroupManager::Method::XML;
+	sgCfg.apiKey = g_WLConfig.sgSteamApiKey;
 	sgCfg.timeout = g_WLConfig.sgTimeout;
 	sgCfg.groupIds = g_WLConfig.sgGroupIds;
 	g_SteamGroupManager.Init(sgCfg);

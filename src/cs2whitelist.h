@@ -1,5 +1,5 @@
-#ifndef _INCLUDE_CS2WHITELIST_H_
-#define _INCLUDE_CS2WHITELIST_H_
+#ifndef _INCLUDE_WL_PLUGIN_H_
+#define _INCLUDE_WL_PLUGIN_H_
 
 #include "common.h"
 #include "version_gen.h"
@@ -139,4 +139,4 @@ private:
 
 extern CS2WhitelistPlugin g_ThisPlugin;
 
-#endif // _INCLUDE_CS2WHITELIST_H_
+#endif // _INCLUDE_WL_PLUGIN_H_

@@ -1,7 +1,8 @@
-#pragma once
+#ifndef _INCLUDE_WL_DATABASE_H_
+#define _INCLUDE_WL_DATABASE_H_
 
 #include "utils/sql.h"
-#include "wl_config.h"
+#include "config/config.h"
 
 #include <functional>
 #include <string>
@@ -75,3 +76,5 @@ private:
 };
 
 extern WLDatabase g_WLDatabase;
+
+#endif // _INCLUDE_WL_DATABASE_H_

@@ -1,6 +1,6 @@
 #include "wl_database.h"
 #include "utils/log.h"
-#include "wl_config.h"
+#include "config/config.h"
 #include "common.h"
 
 #include "interfaces/sql_mm/sql_mm.h"

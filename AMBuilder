@@ -21,7 +21,7 @@ for sdk_target in MMSPlugin.sdk_targets:
         "src/steamgroup/steamgroup_manager.cpp",
         "src/whitelist/whitelist_manager.cpp",
         "src/utils/utils.cpp",
-        "src/db/wl_config.cpp",
+        "src/config/config.cpp",
         "src/db/wl_database.cpp",
         "mm-utils/utils/chat_colors.cpp",
         "mm-utils/game/cvarquery.cpp",

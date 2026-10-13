@@ -1,4 +1,6 @@
-#pragma once
+#ifndef _INCLUDE_WL_CONFIG_H_
+#define _INCLUDE_WL_CONFIG_H_
+
 #include "utils/config_blocks.h"
 
 #include <string>
@@ -8,10 +10,10 @@
 struct WLConfig
 {
 	// [General] section
-	bool enable = true;
+	bool enabled = true;
 	bool immunity = true;
 	std::string filename = "whitelist.txt";
-	int logMode = 0; // 0=off  1=always  2=once per player per map
+	int logRejects = 0; // 0=off  1=always  2=once per player per map
 	mmu::config::GeneralBlock general;
 
 	mmu::config::LogBlock log;
@@ -23,8 +25,8 @@ struct WLConfig
 
 	// [SteamGroups] section
 	bool sgEnabled = false;
-	std::string sgMethod = "xml"; // "xml" or "api"
-	std::string sgApiKey;
+	std::string sgMode = "xml"; // "xml" or "api"
+	std::string sgSteamApiKey;
 	float sgTimeout = 5.0f;
 	std::vector<uint64_t> sgGroupIds;
 };
@@ -34,3 +36,5 @@ struct WLConfig
 bool WL_LoadConfig(const char *filePath, WLConfig &out);
 
 extern WLConfig g_WLConfig;
+
+#endif // _INCLUDE_WL_CONFIG_H_

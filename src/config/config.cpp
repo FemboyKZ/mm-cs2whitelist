@@ -1,4 +1,4 @@
-#include "wl_config.h"
+#include "config.h"
 
 #include <fstream>
 #include <string>
@@ -26,7 +26,7 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 	{
 		if (k == "enabled" || k == "enable")
 		{
-			cfg->enable = (value != "0");
+			cfg->enabled = (value != "0");
 		}
 		else if (k == "immunity")
 		{
@@ -38,7 +38,7 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 		}
 		else if (k == "logrejects" || k == "log")
 		{
-			cfg->logMode = std::atoi(value.c_str());
+			cfg->logRejects = std::atoi(value.c_str());
 		}
 		else if (mmu::config::ApplyLogKey(cfg->log, k, value))
 		{
@@ -57,11 +57,11 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 		}
 		else if (k == "mode" || k == "method")
 		{
-			cfg->sgMethod = str::ToLower(value);
+			cfg->sgMode = str::ToLower(value);
 		}
 		else if (k == "steamapikey" || k == "apikey")
 		{
-			cfg->sgApiKey = value;
+			cfg->sgSteamApiKey = value;
 		}
 		else if (k == "timeout")
 		{
