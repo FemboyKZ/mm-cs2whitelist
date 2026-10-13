@@ -1,4 +1,5 @@
 #include "common.h"
+#include "cs2whitelist.h"
 #include "whitelist/whitelist_manager.h"
 #include "steamgroup/steamgroup_manager.h"
 #include "db/wl_database.h"
@@ -45,7 +46,7 @@ CON_COMMAND_F(mm_whitelist_status, "Show whitelist status (enabled, entry count,
 				 g_WLManager.GetWhitelistCacheCount(), g_WLManager.GetBlacklistCacheCount(), cv_filename.Get().Get());
 }
 
-CON_COMMAND_F(mm_whitelist_reload, "Reload the whitelist file from disk.", FCVAR_GAMEDLL | FCVAR_RELEASE)
+CON_COMMAND_F(mm_whitelist_reload, "Reload core.cfg and the whitelist file from disk.", FCVAR_GAMEDLL | FCVAR_RELEASE)
 {
 	int slot = context.GetPlayerSlot().Get();
 	if (!HasAdminAccess(slot, "whitelist_reload", CS2ADMIN_FLAG_CONVARS))
@@ -53,7 +54,7 @@ CON_COMMAND_F(mm_whitelist_reload, "Reload the whitelist file from disk.", FCVAR
 		return;
 	}
 
-	const bool loaded = g_WLManager.LoadFile();
+	const bool loaded = g_ThisPlugin.LoadConfigAndFile();
 	// Even a failed load drops the file's groups.
 	g_SteamGroupManager.FetchGroups();
 	if (loaded)

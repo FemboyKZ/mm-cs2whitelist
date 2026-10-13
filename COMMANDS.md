@@ -24,7 +24,7 @@ The server console always has full access.
 | `mm_whitelist_exist`       | `b` generic  | Check if a SteamID/IP is whitelisted          |
 | `mm_whitelist_add`         | `e` unban    | Add a SteamID/IP to the whitelist             |
 | `mm_whitelist_remove`      | `e` unban    | Remove a SteamID/IP from the whitelist        |
-| `mm_whitelist_reload`      | `h` convars  | Reload the whitelist file from disk           |
+| `mm_whitelist_reload`      | `h` convars  | Reload core.cfg and the whitelist file        |
 | `mm_whitelist_cache_clear` | `h` convars  | Clear the per-map whitelist/rejection cache   |
 
 ## admin_overrides.cfg examples

@@ -107,7 +107,7 @@ bool CS2WhitelistPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t ma
 	return true;
 }
 
-void CS2WhitelistPlugin::LoadConfigAndFile()
+bool CS2WhitelistPlugin::LoadConfigAndFile()
 {
 	char cfgPath[512];
 	snprintf(cfgPath, sizeof(cfgPath), "%s/cfg/cs2whitelist/core.cfg", g_SMAPI->GetBaseDir());
@@ -127,8 +127,16 @@ void CS2WhitelistPlugin::LoadConfigAndFile()
 
 	WL_LoadTranslations();
 
+	SteamGroupManager::Config sgCfg;
+	sgCfg.enabled = g_WLConfig.sgEnabled;
+	sgCfg.method = (g_WLConfig.sgMethod == "api") ? SteamGroupManager::Method::API : SteamGroupManager::Method::XML;
+	sgCfg.apiKey = g_WLConfig.sgApiKey;
+	sgCfg.timeout = g_WLConfig.sgTimeout;
+	sgCfg.groupIds = g_WLConfig.sgGroupIds;
+	g_SteamGroupManager.Init(sgCfg);
+
 	// Reads cv_filename, so it follows the config.
-	g_WLManager.LoadFile();
+	return g_WLManager.LoadFile();
 }
 
 bool CS2WhitelistPlugin::Unload(char *error, size_t maxlen)
@@ -185,16 +193,7 @@ void CS2WhitelistPlugin::AllPluginsLoaded()
 		MMU_LOG_INFO("mm-cs2admin not loaded. Admin commands restricted to server console.\n");
 	}
 
-	{
-		SteamGroupManager::Config sgCfg;
-		sgCfg.enabled = g_WLConfig.sgEnabled;
-		sgCfg.method = (g_WLConfig.sgMethod == "api") ? SteamGroupManager::Method::API : SteamGroupManager::Method::XML;
-		sgCfg.apiKey = g_WLConfig.sgApiKey;
-		sgCfg.timeout = g_WLConfig.sgTimeout;
-		sgCfg.groupIds = g_WLConfig.sgGroupIds;
-		g_SteamGroupManager.Init(sgCfg);
-		g_SteamGroupManager.FetchGroups();
-	}
+	g_SteamGroupManager.FetchGroups();
 
 	if (g_WLDatabase.Init(g_WLConfig))
 	{
@@ -231,7 +230,7 @@ void CS2WhitelistPlugin::OnLevelInit(char const *pMapName, char const *pMapEntit
 		return;
 	}
 
-	g_WLManager.LoadFile();
+	LoadConfigAndFile();
 	g_SteamGroupManager.FetchGroups();
 
 	if (g_WLDatabase.IsConnected())

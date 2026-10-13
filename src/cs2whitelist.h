@@ -16,7 +16,7 @@ public:
 	bool Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, bool late);
 
 	// Read core.cfg, apply it to the convars, then load the whitelist file it names.
-	void LoadConfigAndFile();
+	bool LoadConfigAndFile();
 
 	bool Unload(char *error, size_t maxlen);
 	void AllPluginsLoaded();

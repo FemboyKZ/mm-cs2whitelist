@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <stdexcept>
+#include <utility>
 
 #include "utils/str.h"
 #include "utils/kv_parser.h"
@@ -18,6 +19,7 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 	WLConfig *cfg = static_cast<WLConfig *>(userdata);
 	std::string sec = str::ToLower(section);
 	std::string k = str::ToLower(key);
+	bool known = true;
 
 	// "config" and "enable" are the old names.
 	if (sec == "general" || sec == "config")
@@ -44,7 +46,7 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 		}
 		else
 		{
-			mmu::config::ApplyGeneralKey(cfg->general, k, value);
+			known = mmu::config::ApplyGeneralKey(cfg->general, k, value);
 		}
 	}
 	else if (sec == "steamgroups")
@@ -64,6 +66,10 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 		else if (k == "timeout")
 		{
 			cfg->sgTimeout = static_cast<float>(std::atof(value.c_str()));
+		}
+		else
+		{
+			known = false;
 		}
 	}
 	else if (sec == "groups")
@@ -93,7 +99,15 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 	}
 	else if (sec == "database")
 	{
-		mmu::config::ApplyOptionalDatabaseKey(cfg->database, cfg->dbEnabled, k, value);
+		known = mmu::config::ApplyOptionalDatabaseKey(cfg->database, cfg->dbEnabled, k, value);
+	}
+	else
+	{
+		known = false;
+	}
+	if (!known)
+	{
+		mmu::config::WarnUnknownKey(section, key);
 	}
 }
 
@@ -118,7 +132,10 @@ bool WL_LoadConfig(const char *filePath, WLConfig &out)
 		return false;
 	}
 
-	kv::ParseSection(file, root.value, OnKV, &out);
+	// Fresh, so a removed key reverts to its default and the group list starts over.
+	WLConfig fresh;
+	kv::ParseSection(file, root.value, OnKV, &fresh);
+	out = std::move(fresh);
 
 	mmu::config::ApplyLogBlock(out.log);
 	return true;
