@@ -18,7 +18,8 @@ struct WLConfig
 
 	// [Database] section
 	bool dbEnabled = false;
-	mmu::config::DatabaseBlock database = mmu::config::DatabaseBlock::Defaults("cs2whitelist", "addons/cs2whitelist/whitelist.db", "cs2wl");
+	mmu::config::DatabaseBlock database =
+		mmu::config::DatabaseBlock::Defaults("cs2whitelist", "addons/cs2whitelist/data/cs2whitelist.db", "cs2wl", "addons/cs2whitelist/whitelist.db");
 
 	// [SteamGroups] section
 	bool sgEnabled = false;

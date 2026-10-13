@@ -26,7 +26,7 @@ bool WLDatabase::Init(const WLConfig &cfg)
 	}
 	m_conn.SetSchemaHook([this] { CreateSchema(); });
 
-	m_params = cfg.database.ToConnectParams();
+	m_params = cfg.database.ToConnectParams(g_SMAPI->GetBaseDir());
 
 	m_enabled = true;
 	m_startupLoadPending = true;
