@@ -7,12 +7,12 @@
 
 struct WLConfig
 {
-	// [Config] section
+	// [General] section
 	bool enable = true;
 	bool immunity = true;
 	std::string filename = "whitelist.txt";
-	int logMode = 0;                    // 0=off  1=always  2=once per player per map
-	std::string defaultLanguage = "en"; // phrase-file key used when a client's language is unknown
+	int logMode = 0; // 0=off  1=always  2=once per player per map
+	mmu::config::GeneralBlock general;
 
 	mmu::config::LogBlock log;
 

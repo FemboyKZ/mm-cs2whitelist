@@ -47,7 +47,7 @@ void WL_LoadTranslations()
 	// Phrases render in consoles and on the disconnect screen, never in chat.
 	g_WLTranslations.SetResolveColorTags(false);
 	g_WLTranslations.Load(g_SMAPI->GetBaseDir(), "cs2whitelist");
-	g_WLTranslations.SetDefaultLanguage(g_WLConfig.defaultLanguage);
+	g_WLTranslations.SetDefaultLanguage(g_WLConfig.general.defaultLanguage);
 }
 
 CS2WhitelistPlugin::CS2WhitelistPlugin()

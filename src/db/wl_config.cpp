@@ -19,9 +19,10 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 	std::string sec = str::ToLower(section);
 	std::string k = str::ToLower(key);
 
-	if (sec == "config")
+	// "config" and "enable" are the old names.
+	if (sec == "general" || sec == "config")
 	{
-		if (k == "enable")
+		if (k == "enabled" || k == "enable")
 		{
 			cfg->enable = (value != "0");
 		}
@@ -41,9 +42,9 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 		{
 			// consumed
 		}
-		else if (k == "defaultlanguage")
+		else
 		{
-			cfg->defaultLanguage = value;
+			mmu::config::ApplyGeneralKey(cfg->general, k, value);
 		}
 	}
 	else if (sec == "steamgroups")
@@ -56,7 +57,7 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 		{
 			cfg->sgMethod = str::ToLower(value);
 		}
-		else if (k == "apikey")
+		else if (k == "steamapikey" || k == "apikey")
 		{
 			cfg->sgApiKey = value;
 		}
@@ -92,14 +93,7 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 	}
 	else if (sec == "database")
 	{
-		if (k == "enabled")
-		{
-			cfg->dbEnabled = (value != "0");
-		}
-		else
-		{
-			mmu::config::ApplyDatabaseKey(cfg->database, k, value);
-		}
+		mmu::config::ApplyOptionalDatabaseKey(cfg->database, cfg->dbEnabled, k, value);
 	}
 }
 
