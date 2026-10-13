@@ -132,7 +132,7 @@ bool WL_LoadConfig(const char *filePath, WLConfig &out)
 		return false;
 	}
 
-	// Fresh, so a removed key reverts to its default and the group list starts over.
+	// Fresh, so removed keys and groups go away.
 	WLConfig fresh;
 	kv::ParseSection(file, root.value, OnKV, &fresh);
 	out = std::move(fresh);
