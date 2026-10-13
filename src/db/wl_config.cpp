@@ -34,7 +34,7 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 		{
 			cfg->filename = value;
 		}
-		else if (k == "log")
+		else if (k == "logrejects" || k == "log")
 		{
 			cfg->logMode = std::atoi(value.c_str());
 		}
@@ -53,7 +53,7 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 		{
 			cfg->sgEnabled = (value != "0");
 		}
-		else if (k == "method")
+		else if (k == "mode" || k == "method")
 		{
 			cfg->sgMethod = str::ToLower(value);
 		}
