@@ -119,10 +119,14 @@ for task in MMSPlugin.binaries:
 
     packages[sdk_name].addBinary(task.binary)
 
-    # Copy example whitelist config
-    packages[sdk_name].addFile(
-        "configs/whitelist.example.txt", "configs/whitelist.example.txt"
-    )
+    # Deploy config files to cfg/cs2whitelist/
+    cfg_src = os.path.join(builder.sourcePath, "configs")
+    cfg_dst = "cfg/cs2whitelist"
+    builder.AddFolder(cfg_dst)
+    for cfg_file in ("core.cfg", "whitelist.example.txt"):
+        builder.AddCopy(
+            os.path.join(cfg_src, cfg_file), os.path.join(cfg_dst, cfg_file)
+        )
 
     # Deploy translation files
     packages[sdk_name].addFolder("translations", "translations")

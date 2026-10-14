@@ -113,28 +113,12 @@ static void OnKV(const std::string &section, const std::string &key, const std::
 
 bool WL_LoadConfig(const char *filePath, WLConfig &out)
 {
-	std::ifstream file(filePath);
-	if (!file.is_open())
-	{
-		return false;
-	}
-
-	// Expect: "cs2whitelist" { ... }
-	kv::Token root = kv::NextToken(file);
-	if (root.kind != kv::TokenType::String)
-	{
-		return false;
-	}
-
-	kv::Token brace = kv::NextToken(file);
-	if (brace.kind != kv::TokenType::OpenBrace)
-	{
-		return false;
-	}
-
 	// Fresh, so removed keys and groups go away.
 	WLConfig fresh;
-	kv::ParseSection(file, root.value, OnKV, &fresh);
+	if (!kv::LoadFile(filePath, OnKV, &fresh))
+	{
+		return false;
+	}
 	out = std::move(fresh);
 
 	mmu::config::ApplyLogBlock(out.log);

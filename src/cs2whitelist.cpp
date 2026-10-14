@@ -141,6 +141,7 @@ bool CS2WhitelistPlugin::LoadConfigAndFile()
 
 bool CS2WhitelistPlugin::Unload(char *error, size_t maxlen)
 {
+	ConVar_Unregister();
 	m_OnClientConnected.Remove(g_pGameClients);
 	m_ClientPutInServer.Remove(g_pGameClients);
 	m_ClientDisconnect.Remove(g_pGameClients);

@@ -1,7 +1,7 @@
 {
     "name": "cs2whitelist",
     "alias": "cs2wl",
-    "display_name": "CS2 Whitelist Plugin",
+    "display_name": "CS2 Whitelist",
     "description": "CS2 Whitelist plugin for Metamod.",
     "author": "jvnipers",
     "url": "https://github.com/FemboyKZ/mm-cs2whitelist",
