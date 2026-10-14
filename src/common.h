@@ -5,7 +5,8 @@
 #include "sdk/plugin_globals.h"
 
 #include <ISmmPlugin.h>
-#include <iserver.h>
+#include <engine2/inetworkserverservice.h>
+#include <engine2/networkgameserverbase.h>
 #include <cstdint>
 #include <string>
 

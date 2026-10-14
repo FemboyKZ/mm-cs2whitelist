@@ -15,12 +15,14 @@
 #include "utils/http_client.h"
 #include "utils/log.h"
 
-#include <eiface.h>
-#include <engine/igameeventsystem.h>
+#include <engine2/isource2server.h>
+#include <engine2/ivengineserver2.h>
+#include <engine2/igameeventsystem.h>
 #include <interfaces/interfaces.h>
-#include <iserver.h>
+#include <engine2/inetworkserverservice.h>
+#include <engine2/networkgameserverbase.h>
 #include <networksystem/inetworkmessages.h>
-#include <tier1/convar.h>
+#include <tier0/convar.h>
 
 CS2WhitelistPlugin g_ThisPlugin;
 PLUGIN_EXPOSE(CS2WhitelistPlugin, g_ThisPlugin);

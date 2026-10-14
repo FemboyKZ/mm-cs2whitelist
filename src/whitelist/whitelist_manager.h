@@ -7,7 +7,7 @@
 #include <vector>
 #include <unordered_set>
 #include <cstdint>
-#include <tier1/convar.h>
+#include <tier0/convar.h>
 
 // ConVar declarations
 extern CConVar<bool> cv_enable;

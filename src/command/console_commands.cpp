@@ -8,7 +8,7 @@
 #include "utils/command_args.h"
 #include "game/players.h"
 
-#include <tier1/convar.h>
+#include <tier0/convar.h>
 
 // The one SteamID or IP a command takes, bare or as entry=, cs2kz's key=value style.
 // Empty after replying with what was wrong.

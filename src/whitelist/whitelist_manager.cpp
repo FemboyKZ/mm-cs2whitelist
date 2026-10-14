@@ -7,7 +7,8 @@
 #include "db/wl_database.h"
 
 #include <algorithm>
-#include <eiface.h>
+#include <engine2/isource2server.h>
+#include <engine2/ivengineserver2.h>
 #include <fstream>
 #include <cctype>
 #include <cstring>
