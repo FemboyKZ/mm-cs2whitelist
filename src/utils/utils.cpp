@@ -28,12 +28,10 @@ std::string NormalizeEntry(const char *input)
 		return {};
 	}
 
-	// Upper half of every player's SteamID64. Any other would come out as some other player's STEAM_0 form.
-	constexpr uint64_t kPlayerIdHigh = 0x01100001;
-	const uint64_t steamid64 = ParseSteamID64(s);
-	if (steamid64 != 0)
+	std::string authid = NormalizeAuthId(s);
+	if (!authid.empty())
 	{
-		return (steamid64 >> 32) == kPlayerIdHigh ? SteamID64ToAuthId(steamid64) : std::string();
+		return authid;
 	}
 
 	unsigned int octets[4];

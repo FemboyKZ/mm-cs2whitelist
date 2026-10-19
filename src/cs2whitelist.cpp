@@ -38,12 +38,6 @@ IGameEventSystem *g_pGameEventSystem = nullptr;
 constexpr double kAuthWaitSeconds = 10.0;
 constexpr double kLateHoldSeconds = 15.0;
 
-std::string WL_SlotLanguage(int slot)
-{
-	const char *raw = mmu::cvarquery::GetClientLanguage(slot);
-	return g_WLTranslations.MapClientLanguage(raw);
-}
-
 void WL_LoadTranslations()
 {
 	// Phrases render in consoles and on the disconnect screen, never in chat.
@@ -82,7 +76,7 @@ bool CS2WhitelistPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t ma
 		const double now = Plat_FloatTime();
 		m_lateHoldUntil = now + kLateHoldSeconds;
 		mmu::players::OnLateLoad();
-		for (int slot = 0; slot <= MAXPLAYERS; slot++)
+		for (int slot = 0; slot < MAXPLAYERS; slot++)
 		{
 			if (mmu::players::Get(slot))
 			{
@@ -430,7 +424,7 @@ KHook::Return<void> CS2WhitelistPlugin::Hook_ClientDisconnect(IServerGameClients
 	const int idx = slot.Get();
 	g_SteamGroupManager.OnPlayerDisconnect(idx);
 	mmu::players::OnClientDisconnect(idx);
-	if (idx >= 0 && idx <= MAXPLAYERS)
+	if (mmu::ValidSlot(idx))
 	{
 		m_authDeadline[idx] = 0.0;
 	}
@@ -470,7 +464,7 @@ KHook::Return<void> CS2WhitelistPlugin::Hook_GameFrame(IServerGameDLL *, bool si
 
 	// After the checks: one queued here runs next frame, once mm-cs2admin has seen the same confirmation.
 	mmu::players::RunFrame([this](int slot) { QueueCheck(slot); });
-	for (int slot = 0; slot <= MAXPLAYERS; slot++)
+	for (int slot = 0; slot < MAXPLAYERS; slot++)
 	{
 		if (m_authDeadline[slot] > 0.0 && now >= m_authDeadline[slot])
 		{

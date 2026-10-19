@@ -9,10 +9,6 @@
 extern mmu::Translations g_WLTranslations;
 
 // Defined in cs2whitelist.cpp.
-// Returns the mapped phrase-file language key for the client in `slot`, or the default language when unavailable.
-std::string WL_SlotLanguage(int slot);
-
-// Defined in cs2whitelist.cpp.
 // Reloads phrase tables. Call after (re)loading the plugin config.
 void WL_LoadTranslations();
 
