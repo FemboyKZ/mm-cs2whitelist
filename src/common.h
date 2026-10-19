@@ -1,6 +1,7 @@
 #ifndef _INCLUDE_WL_COMMON_H_
 #define _INCLUDE_WL_COMMON_H_
 
+#include "game/players.h"
 #include "interfaces/cs2admin/admin_access.h"
 #include "sdk/plugin_globals.h"
 
@@ -12,5 +13,7 @@
 
 // Optional. Without mm-cs2admin, in-game commands are console-only.
 extern mmu::AdminAccess g_CS2Admin;
+
+extern mmu::Players<> g_WLPlayers;
 
 #endif // _INCLUDE_WL_COMMON_H_

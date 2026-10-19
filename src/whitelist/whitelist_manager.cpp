@@ -1,7 +1,6 @@
 #include "whitelist_manager.h"
 #include "utils/log.h"
 #include "utils/str.h"
-#include "game/players.h"
 #include "steamgroup/steamgroup_manager.h"
 #include "utils/utils.h"
 #include "db/wl_database.h"
@@ -393,7 +392,7 @@ void WLManager::SetDbEntries(const std::unordered_set<std::string> &rows)
 
 bool WLManager::IsPlayerWhitelisted(int slot) const
 {
-	const mmu::Player *p = mmu::players::Get(slot);
+	const mmu::Player *p = g_WLPlayers.Get(slot);
 	if (!p)
 	{
 		return false;

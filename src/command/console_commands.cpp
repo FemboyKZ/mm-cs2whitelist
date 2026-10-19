@@ -6,7 +6,6 @@
 #include "utils/utils.h"
 #include "interfaces/cs2admin/ics2admin.h"
 #include "utils/command_args.h"
-#include "game/players.h"
 
 #include <tier0/convar.h>
 
@@ -66,13 +65,13 @@ CON_COMMAND_F(mm_whitelist_reload, "Reload core.cfg and the whitelist file from 
 	{
 		if (g_WLDatabase.IsConnected())
 		{
-			const mmu::Player *caller = mmu::players::Get(slot);
+			const mmu::Player *caller = g_WLPlayers.Get(slot);
 			const uint64_t xuid = caller ? caller->steamid64 : 0;
 			g_WLManager.LoadDbEntries(
 				[slot, xuid](int count)
 				{
 					// The slot may have changed hands while the query ran.
-					const mmu::Player *p = mmu::players::Get(slot);
+					const mmu::Player *p = g_WLPlayers.Get(slot);
 					if (slot >= 0 && (!p || p->steamid64 != xuid))
 					{
 						return;
