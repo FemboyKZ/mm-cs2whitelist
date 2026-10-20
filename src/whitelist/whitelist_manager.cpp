@@ -107,7 +107,7 @@ static LineKind ParseLine(const std::string &line, uint64_t &groupId, std::strin
 {
 	// Some Windows editors lead the file with a UTF-8 byte-order mark.
 	std::string text = line.compare(0, 3, "\xEF\xBB\xBF") == 0 ? line.substr(3) : line;
-	text = str::Trim(text.substr(0, (std::min)(text.find_first_of(";#"), text.find("//"))));
+	text = str::Trim(text.substr(0, std::min(text.find_first_of(";#"), text.find("//"))));
 	if (text.empty())
 	{
 		return LineKind::Blank;
