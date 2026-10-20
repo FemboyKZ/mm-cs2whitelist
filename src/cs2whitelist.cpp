@@ -167,10 +167,14 @@ void CS2WhitelistPlugin::OnPluginLoad(PluginId id)
 	{
 		MMU_LOG_INFO("mm-cs2admin interface acquired (late load).\n");
 	}
+	g_WLDatabase.Refresh();
 }
 
 void CS2WhitelistPlugin::OnPluginUnload(PluginId id)
 {
+	g_WLDatabase.Refresh();
+	// Its code is already unmapped, so they are only forgotten.
+	m_listeners.erase(std::remove_if(m_listeners.begin(), m_listeners.end(), [id](const Listener &l) { return l.owner == id; }), m_listeners.end());
 	if (g_CS2Admin.Refresh() == mmu::BridgeChange::Unloaded)
 	{
 		MMU_LOG_INFO("mm-cs2admin unloaded - admin commands restricted to server console.\n");
@@ -387,9 +391,9 @@ void CS2WhitelistPlugin::RejectPlayer(int idx, const char *pszName, bool cacheRe
 	}
 
 	// A copy, a listener may remove itself from inside the call.
-	for (ICS2WhitelistListener *l : std::vector<ICS2WhitelistListener *>(m_listeners))
+	for (const Listener &l : std::vector<Listener>(m_listeners))
 	{
-		if (l->OnWhitelistKickPre(idx) == WLKickResult::Block)
+		if (l.listener->OnWhitelistKickPre(idx) == WLKickResult::Block)
 		{
 			if (p->authenticated)
 			{
@@ -548,15 +552,16 @@ bool CS2WhitelistPlugin::RemoveEntry(const char *entry)
 	return g_WLManager.RemoveEntry(entry);
 }
 
-void CS2WhitelistPlugin::AddListener(ICS2WhitelistListener *listener)
+void CS2WhitelistPlugin::AddListener(PluginId owner, ICS2WhitelistListener *listener)
 {
 	if (listener)
 	{
-		m_listeners.push_back(listener);
+		m_listeners.push_back({owner, listener});
 	}
 }
 
 void CS2WhitelistPlugin::RemoveListener(ICS2WhitelistListener *listener)
 {
-	m_listeners.erase(std::remove(m_listeners.begin(), m_listeners.end(), listener), m_listeners.end());
+	m_listeners.erase(std::remove_if(m_listeners.begin(), m_listeners.end(), [listener](const Listener &l) { return l.listener == listener; }),
+					  m_listeners.end());
 }

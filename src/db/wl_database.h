@@ -21,6 +21,11 @@ public:
 	// Gracefully destroy the connection.
 	void Shutdown();
 
+	void Refresh()
+	{
+		m_conn.Refresh();
+	}
+
 	bool IsConnected() const
 	{
 		return m_conn.IsConnected();

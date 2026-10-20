@@ -92,7 +92,7 @@ public:
 	bool AddEntry(const char *entry) override;
 	bool RemoveEntry(const char *entry) override;
 
-	void AddListener(ICS2WhitelistListener *listener) override;
+	void AddListener(PluginId owner, ICS2WhitelistListener *listener) override;
 	void RemoveListener(ICS2WhitelistListener *listener) override;
 
 	// The final not-whitelisted step, shared by the synchronous check and the async Steam group results.
@@ -109,7 +109,13 @@ private:
 	// Only later level inits are real map changes.
 	bool m_bSkipLevelInitReload = false;
 
-	std::vector<ICS2WhitelistListener *> m_listeners;
+	struct Listener
+	{
+		PluginId owner;
+		ICS2WhitelistListener *listener;
+	};
+
+	std::vector<Listener> m_listeners;
 
 	// The whitelist decision for one player, kick included.
 	void CheckPlayer(int slot, const std::string &name);
