@@ -9,11 +9,6 @@ for sdk_target in MMSPlugin.sdk_targets:
         builder, cxx, f'{MMSPlugin.metadata["name"]}.{sdk["name"]}', sdk
     )
 
-    # Include paths
-    binary.compiler.cxxincludes += [
-        os.path.join(builder.sourcePath, "src"),
-    ]
-
     binary.sources += [
         "src/cs2whitelist.cpp",
         "src/command/console_commands.cpp",
