@@ -272,7 +272,7 @@ KHook::Return<void> CS2WhitelistPlugin::Hook_OnClientConnected(IServerGameClient
 	return {KHook::Action::Ignore};
 }
 
-KHook::Return<void> CS2WhitelistPlugin::Hook_ClientPutInServer(IServerGameClients *, CPlayerSlot slot, char const *pszName, int type, uint64 xuid)
+KHook::Return<void> CS2WhitelistPlugin::Hook_ClientPutInServer(IServerGameClients *, CPlayerSlot slot, char const *pszName, ClientPutInServerType_t type, uint64 xuid)
 {
 	int idx = slot.Get();
 	g_WLPlayers.OnClientPutInServer(idx);
